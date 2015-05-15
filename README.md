@@ -67,11 +67,49 @@ can lead to exploits and compromise
 [security](http://boingboing.net/2011/12/28/linguistics-turing-completene.html). It
 is best avoided. Always use data for configuration.
 
+### Use environment variables sparingly
+
+We suggest using environment variables sparingly, the way Unix intends,
+and not to [go mad](http://12factor.net/config). After all, we want to keep configuration explicit and intentional.
+
 ### Use edn
 
-Fortunately, there already exists
+Fortunately, most of the tech to read configuration in a safe, secure
+and extensible way already exists in the Clojure core library (EDN).
 
-AERO
+## Tag literals
+
+Aero provides a small library of tag literals.
+
+### env
+
+Use `#env` to reference an environment variable.
+
+```clojure
+{:password #env DATABASE_PASSWORD}
+```
+
+When you need to hide a configuration detail, such as a password, use
+this feature. If you're using AWS Beanstalk, you can set environment
+variables in the console, which keeps them safe from unauthorised
+access.
+
+### cond
+
+Use cond as a kind of reader conditional. #cond expects a map, from which is extracts the entry corresponding to the of __profile__.
+
+```clojure
+{:webserver
+  {:port #cond {:default 8000
+                :dev 8001
+                :test 8002}}}
+```
+
+You can specify the value of __profile__ when you read the config.
+
+```clojure
+(read-config "config.edn" {:profile :dev})
+```
 
 ## References
 
