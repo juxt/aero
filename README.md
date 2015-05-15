@@ -8,7 +8,7 @@ Light and fluffy configuration.
 
 ## Installation
 
-Add the following dependency to your `project.clj` file :-
+Add the following dependency to your `project.clj` file
 
 ```clojure
 [aero "0.1.0"]
@@ -27,7 +27,7 @@ Create a file called `config.edn` containing the following
 {:greeting "World!"}
 ```
 
-In your code, read the configuration like this :-
+In your code, read the configuration like this
 
 ```clojure
 (require '[aero.core :refer (read-config)])
