@@ -70,7 +70,9 @@ is best avoided. Always use data for configuration.
 ### Use environment variables sparingly
 
 We suggest using environment variables sparingly, the way Unix intends,
-and not to [go mad](http://12factor.net/config). After all, we want to keep configuration explicit and intentional.
+and not [go mad](http://12factor.net/config). After all, we want to keep configuration explicit and intentional.
+
+Also, see these arguments [against](https://gist.github.com/telent/9742059).
 
 ### Use edn
 
@@ -96,7 +98,9 @@ access.
 
 ### cond
 
-Use cond as a kind of reader conditional. #cond expects a map, from which is extracts the entry corresponding to the of __profile__.
+Use cond as a kind of reader conditional.
+
+`#cond` expects a map, from which is extracts the entry corresponding to the of __profile__.
 
 ```clojure
 {:webserver
