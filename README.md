@@ -115,6 +115,13 @@ You can specify the value of __profile__ when you read the config.
 (read-config "config.edn" {:profile :dev})
 ```
 
+which will return
+
+```clojure
+{:webserver
+  {:port 8001}}
+```
+
 ## References
 
 Aero is built on Clojure's [edn](https://github.com/edn-format/edn).
