@@ -38,7 +38,7 @@ In your code, read the configuration like this
 
 ### Explicit and intentional
 
-Configuration should be explicit, obvious and not be clever. It should be easy to understand what the config is, and where it is declared.
+Configuration should be explicit, obvious, not clever. It should be easy to understand what the config is, and where it is declared.
 
 Determining config while diagnosing a support issue should not be a
 [wild goose chase](http://en.wiktionary.org/wiki/wild-goose_chase).
@@ -61,11 +61,12 @@ While it is good to keep config in source code control, it is important to ensur
 
 ### Config should be data
 
-While it can be very flexible to have 'clever' configuration 'programs', it is
+While it can be very flexible to have 'clever' configuration 'programs',
+it can be
 [unsafe](http://www.learningclojure.com/2013/02/clojures-reader-is-unsafe.html),
-can lead to exploits and compromise
-[security](http://boingboing.net/2011/12/28/linguistics-turing-completene.html). It
-is best avoided. Always use data for configuration.
+lead to exploits and compromise security. Configuration is a key input
+to a program. Always use data for configuration and
+[avoid turing-complete](http://langsec.org/occupy) languages!
 
 ### Use environment variables sparingly
 
@@ -95,6 +96,12 @@ When you need to hide a configuration detail, such as a password, use
 this feature. If you're using AWS Beanstalk, you can set environment
 variables in the console, which keeps them safe from unauthorised
 access.
+
+Use `#env` with a vector to provide a default if the environment variable doesn't exist.
+
+```clojure
+{:password #env [PORT 8080]}
+```
 
 ### cond
 
