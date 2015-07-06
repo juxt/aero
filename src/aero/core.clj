@@ -18,9 +18,14 @@
 (defn read-config
   "Optional second argument is a map. Keys are :profile, indicating the
   profile for use with #cond"
-  ([r {:keys [profile]}]
-   (edn/read
-    {:readers (readers profile)}
-    (java.io.PushbackReader. (io/reader r))))
+  ([r {:keys [profile schema]}]
+   (let [config
+         (edn/read
+          {:readers (readers (or profile :default))}
+          (java.io.PushbackReader. (io/reader r)))]
+     (when schema
+       (s/validate schema config))
+     config))
+
   ([r]
-   (read-config r {:profile :default})))
+   (read-config r {})))
