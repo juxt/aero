@@ -3,8 +3,23 @@
 (ns aero.core-test
   (:require [clojure.test :refer :all]
             [aero.core :refer :all]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.edn :as edn]))
 
-(deftest a-test
+(deftest basic-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= "Hello World!" (:greeting config)))))
+
+(deftest hostname-test
+  (is (=
+       (edn/read
+        {:readers (readers {:profile :default
+                            :hostname "emerald"})}
+        (java.io.PushbackReader. (io/reader "test/aero/hosts.edn")))
+       {:color "green" :weight 10}))
+  (is (=
+       (edn/read
+        {:readers (readers {:profile :default
+                            :hostname "granite"})}
+        (java.io.PushbackReader. (io/reader "test/aero/hosts.edn")))
+       {:color "black" :weight nil})))

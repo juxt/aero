@@ -1,0 +1,3 @@
+{:color #hostname {"emerald" "green"
+                   :default "black"}
+ :weight #hostname {"emerald" 10}}

@@ -4,25 +4,39 @@
   (:require
    [clojure.edn :as edn]
    [clojure.java.io :as io]
+   [clojure.string :refer (trim)]
+   [clojure.java.shell :as sh]
    [schema.core :as s]))
 
-(defn readers [profile]
+(defn readers [{:keys [profile hostname]}]
   {'env (fn [x]
           (cond (vector? x) (or (System/getenv (str (first x))) (second x))
                 :otherwise (System/getenv (str x))))
    'cond (fn [m]
            (cond (contains? m profile) (clojure.core/get m profile)
                  (contains? m :default) (clojure.core/get m :default)
-                 :otherwise nil))})
+                 :otherwise nil))
+   'hostname (fn [m]
+               (or
+                (some (fn [[k v]]
+                        (when (or (= k hostname)
+                                  (and (set? k) (contains? k hostname))
+                                  )
+                          v))
+                      m)
+                (get m :default)))})
 
 (defn read-config
   "Optional second argument is a map. Keys are :profile, indicating the
   profile for use with #cond"
   ([r {:keys [profile schema]}]
-   (let [config
+   (let [hostname (-> (sh/sh "hostname") :out trim)
+         config
          (edn/read
-          {:readers (readers (or profile :default))}
-          (java.io.PushbackReader. (io/reader r)))]
+          {:readers (readers {:profile (or profile :default)
+                              :hostname hostname})}
+          (java.io.PushbackReader. (io/reader r)))
+         ]
      (when schema
        (s/validate schema config))
      config))

@@ -129,11 +129,24 @@ which will return
   {:port 8001}}
 ```
 
+### hostname
+
+Use when config has to differ from host to host, using the hostname. You
+can specify multiple hostnames in a set.
+
+```clojure
+{:webserver
+  {:port #hostname {"stone" 8080
+                    #{"emerald" "diamond"} 8081
+                    :default 8082}}}
+```
+
 ## References
 
 Aero is built on Clojure's [edn](https://github.com/edn-format/edn).
 
-Aero is influenced by [nomad](https://github.com/james-henderson/nomad), but explicitly avoids environmental factors, such as hostname.
+Aero is influenced by [nomad](https://github.com/james-henderson/nomad),
+but purposely avoids instance, environment and private config.
 
 ## Copyright & License
 
