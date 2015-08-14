@@ -11,7 +11,7 @@ Light and fluffy configuration.
 Add the following dependency to your `project.clj` file
 
 ```clojure
-[aero "0.1.1"]
+[aero "0.1.2"]
 ```
 
 ## Status
