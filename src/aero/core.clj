@@ -32,11 +32,11 @@
   ([r {:keys [profile schema]}]
    (let [hostname (-> (sh/sh "hostname") :out trim)
          config
-         (edn/read
-          {:readers (readers {:profile (or profile :default)
-                              :hostname hostname})}
-          (java.io.PushbackReader. (io/reader r)))
-         ]
+         (with-open [pr (java.io.PushbackReader. (io/reader r))]
+           (edn/read
+            {:readers (readers {:profile (or profile :default)
+                                :hostname hostname})}
+            pr))]
      (when schema
        (s/validate schema config))
      config))
