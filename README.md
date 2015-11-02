@@ -2,7 +2,7 @@
 
 (<b>a</b>ero is <b>e</b>dn <b>r</b>eally, <b>o</b>k?)
 
-Light and fluffy configuration.
+A small library for explicit, intentful configuration.
 
 ![Light and fluffy configuration](aero.jpg)
 
@@ -38,20 +38,24 @@ In your code, read the configuration like this
 
 ### Explicit and intentional
 
-Configuration should be explicit, obvious, not clever. It should be easy to understand what the config is, and where it is declared.
+Configuration should be explicit, intentful, obvious, but not clever. It
+should be easy to understand what the config is, and where it is
+declared.
 
-Determining config while diagnosing a support issue should not be a
+Determining config in stressful situations, for example, while
+diagnosing the cause of a production issue, should not be a
 [wild goose chase](http://en.wiktionary.org/wiki/wild-goose_chase).
 
 ### Avoid duplication ...
 
-Config files are often duplicated on a per-environment basis, attracting all the problems associated with duplication.
+Config files are often duplicated on a per-environment basis, attracting
+all the problems associated with duplication.
 
 ### ... but allow for difference
 
 When looking at a config file, a reader will usually ask: "Does the value differ from the default, and if so how?". It's clearly better to answer that question in-place.
 
-### Allow config to be stored in the repository ...
+### Allow config to be stored in the source code repository ...
 
 When config is left out of source code control it festers and diverges from the code base. Better to keep a single config file in source code control.
 
@@ -70,15 +74,18 @@ to a program. Always use data for configuration and
 
 ### Use environment variables sparingly
 
-We suggest using environment variables sparingly, the way Unix intends,
-and not [go mad](http://12factor.net/config). After all, we want to keep configuration explicit and intentional.
+We suggest using environment variables judiciously and sparingly, the
+way Unix intends, and not [go mad](http://12factor.net/config). After
+all, we want to keep configuration explicit and intentional.
 
-Also, see these arguments [against](https://gist.github.com/telent/9742059).
+Also, see these arguments
+[against](https://gist.github.com/telent/9742059).
 
 ### Use edn
 
-Fortunately, most of the tech to read configuration in a safe, secure
-and extensible way already exists in the Clojure core library (EDN).
+Fortunately for Clojure developers like us, most of the tech to read
+configuration in a safe, secure and extensible way already exists in the
+Clojure core library (EDN).
 
 ## Tag literals
 
@@ -139,6 +146,86 @@ can specify multiple hostnames in a set.
   {:port #hostname {"stone" 8080
                     #{"emerald" "diamond"} 8081
                     :default 8082}}}
+```
+
+## Support for Prismatic's schema
+
+A config can be given a :schema entry in the options argument, to specify a schema.
+
+
+```clojure
+(ns myproj.config
+  (:require [schema.core :as s]))
+
+(s/defschema UserPort (s/both s/Int (s/pred #(<= 1024 % 65535))))
+
+(s/defschema ConfigSchema
+  {:webserver {:port UserPort}})
+
+(read-config
+   "config.edn"
+   {:profile profile
+    :schema ConfigSchema})
+```
+
+## Good advice: Use functions to wrap access to your configuration.
+
+Here's some good advice on using Aero in your own programs.
+
+Define a dedicated namespace for config that reads the config and provides functions to access it.
+
+```clojure
+(ns myproj.config
+  (:require [aero.core :as aero]))
+
+(defn config [profile]
+  (aero/read-config "dev/config.edn" {:profile profile}))
+
+(defn webserver-port [config]
+  (get-in config [:webserver :port]))
+```
+
+This way, you build a simple layer of indirection to insulate the parts
+of your program that access configuration from the evolving structure of
+the configuration file. If your configuration structure changes, you
+only have to change the wrappers, rather than locate and update all the
+places in your code where configuration is accessed.
+
+Your program should call the `config` function, usually with an argument
+specifying the configuration profile. It then returned value passes the
+returned value through functions or via lexical scope (possibly
+components).
+
+## How to use Aero with components
+
+If you are using Stuart Sierra's
+[component[(https://github.com/stuartsierra/component) library, here's how you might integrate Aero.
+
+```
+(ns myproj.server
+  (:require [myproj.config :as config]))
+
+(defrecord MyServer [config]
+  Lifecycle
+  (start [component]
+    (assoc component :server (start-server :port (config/webserver-port config))))
+  (stop [component]
+    (when-let [server (:server component)] (stop-server server))))
+
+(defn new-server [config]
+  (->MyServer))
+```
+
+```
+(ns myproj.system
+  [com.stuartsierra.component :as component]
+  [myproj.server :refer [new-server]])
+
+(defn new-production-system []
+  (let [config (config/config :prod)]
+    (system-using
+      (component/system-map :server (new-server config))
+      {})))
 ```
 
 ## References
