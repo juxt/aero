@@ -9,8 +9,8 @@
 (deftest basic-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= "Hello World!" (:greeting config))))
-  (testing "Reading empty config returns empty map"
-    (is (= {} (read-config "test/aero/empty-config.edn")))))
+  (testing "Reading empty config returns nil"
+    (is (= nil (read-config "test/aero/empty-config.edn")))))
 
 (deftest hostname-test
   (is (=
