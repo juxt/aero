@@ -22,4 +22,10 @@
         {:readers (readers {:profile :default
                             :hostname "granite"})}
         (java.io.PushbackReader. (io/reader "test/aero/hosts.edn")))
-       {:color "black" :weight nil})))
+       {:color "black" :weight nil}))
+  (is (=
+       (edn/read
+        {:readers (readers {:profile :default
+                            :hostname "diamond"})}
+        (java.io.PushbackReader. (io/reader "test/aero/hosts.edn")))
+       {:color "white" :weight nil})))
