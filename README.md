@@ -11,7 +11,7 @@ A small library for explicit, intentful configuration.
 Add the following dependency to your `project.clj` file
 
 ```clojure
-[aero "0.1.2"]
+[aero "0.1.3"]
 ```
 
 ## Status
