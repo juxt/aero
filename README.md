@@ -19,6 +19,8 @@ Add the following dependency to your `project.clj` file
 Please note that being a 0.x.y version indicates the provisional status
 of this library, and that features are subject to change.
 
+[![Build Status](https://travis-ci.org/juxt/aero.png)](https://travis-ci.org/juxt/aero)
+
 ## Getting started
 
 Create a file called `config.edn` containing the following
