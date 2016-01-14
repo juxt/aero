@@ -34,7 +34,8 @@
          config
          (with-open [pr (java.io.PushbackReader. (io/reader r))]
            (edn/read
-            {:readers (readers {:profile (or profile :default)
+            {:eof nil
+             :readers (readers {:profile (or profile :default)
                                 :hostname hostname})}
             pr))]
      (when schema
