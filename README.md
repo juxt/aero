@@ -203,7 +203,7 @@ components).
 If you are using Stuart Sierra's
 [component[(https://github.com/stuartsierra/component) library, here's how you might integrate Aero.
 
-```
+```clojure
 (ns myproj.server
   (:require [myproj.config :as config]))
 
@@ -218,7 +218,7 @@ If you are using Stuart Sierra's
   (->MyServer))
 ```
 
-```
+```clojure
 (ns myproj.system
   [com.stuartsierra.component :as component]
   [myproj.server :refer [new-server]])
