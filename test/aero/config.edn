@@ -1,1 +1,2 @@
-{:greeting "Hello World!"}
+{:greeting "Hello World!"
+ :flavor #myflavor :favorite }
