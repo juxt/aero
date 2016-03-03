@@ -150,6 +150,18 @@ can specify multiple hostnames in a set.
                     :default 8082}}}
 ```
 
+### Define your own
+
+Aero supports user-defined tag literals. Just extend the `reader` multimethod.
+
+```
+(defmethod reader `mytag
+ [{:keys [profile] :as opts} tag value]
+  (if (= value :favorite)
+     :chocolate
+     :vanilla))
+```
+
 ## Support for Prismatic's schema
 
 A config can be given a :schema entry in the options argument, to specify a schema.
