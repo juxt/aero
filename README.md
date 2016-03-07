@@ -10,16 +10,14 @@ A small library for explicit, intentful configuration.
 
 Add the following dependency to your `project.clj` file
 
-```clojure
-[aero "0.1.3"]
-```
+[![Clojars Project](http://clojars.org/aero/latest-version.svg)](http://clojars.org/aero)
+
+[![Build Status](https://travis-ci.org/juxt/aero.png)](https://travis-ci.org/juxt/aero)
 
 ## Status
 
 Please note that being a 0.x.y version indicates the provisional status
 of this library, and that features are subject to change.
-
-[![Build Status](https://travis-ci.org/juxt/aero.png)](https://travis-ci.org/juxt/aero)
 
 ## Getting started
 
@@ -248,6 +246,13 @@ Aero is built on Clojure's [edn](https://github.com/edn-format/edn).
 
 Aero is influenced by [nomad](https://github.com/james-henderson/nomad),
 but purposely avoids instance, environment and private config.
+
+## Acknowledgments
+
+Thanks to the following people for inspiration, contributions,
+feedback and suggestions.
+
+* Gardner Vickers
 
 ## Copyright & License
 
