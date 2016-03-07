@@ -15,19 +15,29 @@
 (deftest hostname-test
   (is (=
        (edn/read
-        {:readers (readers {:profile :default
-                            :hostname "emerald"})}
+        {:default (partial reader {:profile :default
+                                   :hostname "emerald"})}
         (java.io.PushbackReader. (io/reader "test/aero/hosts.edn")))
        {:color "green" :weight 10}))
   (is (=
        (edn/read
-        {:readers (readers {:profile :default
-                            :hostname "granite"})}
+        {:default (partial reader {:profile :default
+                                   :hostname "granite"})}
         (java.io.PushbackReader. (io/reader "test/aero/hosts.edn")))
        {:color "black" :weight nil}))
   (is (=
        (edn/read
-        {:readers (readers {:profile :default
-                            :hostname "diamond"})}
+        {:default (partial reader {:profile :default
+                                   :hostname "diamond"})}
         (java.io.PushbackReader. (io/reader "test/aero/hosts.edn")))
        {:color "white" :weight nil})))
+
+(defmethod reader 'myflavor
+  [opts tag value]
+  (if (= value :favorite)
+    :chocolate
+    :vanilla))
+
+(deftest define-new-type-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= :chocolate (:flavor config)))))
