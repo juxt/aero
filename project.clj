@@ -1,6 +1,6 @@
 ;; Copyright © 2015, JUXT LTD.
 
-(defproject aero "0.1.5"
+(defproject aero "0.2.0"
   :description "Light and fluffy configuration"
   :url "http://github.com/juxt/aero"
   :license {:name "The MIT License"
