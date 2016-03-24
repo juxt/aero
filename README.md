@@ -112,6 +112,16 @@ Use `#env` with a vector to provide a default if the environment variable doesn'
 {:password #env [PORT 8080]}
 ```
 
+### envf
+
+Like `#env`, `#envf` formats a string using `clojure.core/format` with environment
+variables specified in a vector. This is useful for building up things like
+connection strings.
+
+``` clojure
+{:url #envf ["jdbc:postgresql://psq-prod/prod?user=%s&password=%s" PROD_USER PROD_PASSWD]}
+```
+
 ### cond
 
 Use cond as a kind of reader conditional.
