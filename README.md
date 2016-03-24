@@ -164,7 +164,7 @@ can specify multiple hostnames in a set.
 
 Aero supports user-defined tag literals. Just extend the `reader` multimethod.
 
-```
+```clojure
 (defmethod reader `mytag
  [{:keys [profile] :as opts} tag value]
   (if (= value :favorite)
