@@ -6,19 +6,25 @@
    [clojure.java.io :as io]
    [clojure.string :refer (trim)]
    [clojure.java.shell :as sh]
-   [schema.core :as s]))
+   [schema.core :as s]
+   [clojure.walk :refer [postwalk]]))
 
 (defmulti reader (fn [opts tag value] tag))
 
 (defmethod reader 'env
   [opts tag value]
-  (cond (vector? value) (or (System/getenv (str (first value))) (second value))
-        :otherwise (System/getenv (str value))))
+  (cond
+    (vector? value) (or (System/getenv (str (first value)))
+                        (second value))
+    :otherwise (System/getenv (str value))))
 
 (defmethod reader 'envf
   [opts tag [fmt & args]]
-  (apply format fmt
-         (map (partial reader nil 'env) args)))
+  (apply format fmt (map (partial reader opts 'env) args)))
+
+(defmethod reader 'format
+  [opts tag [fmt & args]]
+  (apply format fmt args))
 
 (defmethod reader 'cond
   [{:keys [profile]} tag value]
@@ -36,6 +42,10 @@
                v))
            value)
      (get value :default))))
+
+(defmethod reader :default
+  [_ _ value]
+  value)
 
 (defn read-config
   "Optional second argument is a map. Keys are :profile, indicating the

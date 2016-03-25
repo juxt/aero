@@ -48,3 +48,8 @@
            (:dumb-term config)))
     (is (= (format "Terminal is %s" "smart")
            (:smart-term config)))))
+
+(deftest format-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= (format "My favorite flavor is %s %s" (System/getenv "TERM") :chocolate)
+           (:flavor-string config)))))
