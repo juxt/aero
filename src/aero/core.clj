@@ -41,12 +41,12 @@
   "Optional second argument is a map. Keys are :profile, indicating the
   profile for use with #cond"
   ([r {:keys [schema] :as opts}]
-   (let [config
-         (with-open [pr (java.io.PushbackReader. (io/reader r))]
-           (edn/read
-            {:eof nil
-             :default (partial reader (merge {:profile :default} opts))}
-            pr))]
+   (let [config (with-open [pr (java.io.PushbackReader. (io/reader r))]
+                  (edn/read
+                   {:eof nil
+                    :default (partial reader (merge {:profile :default
+                                                     :filepath (str r)} opts))}
+                   pr))]
      (when schema
        (s/validate schema config))
      config))
