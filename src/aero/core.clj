@@ -4,7 +4,7 @@
   (:require [clojure
              [edn :as edn]
              [string :refer [trim]]
-             [walk :refer [walk]]]
+             [walk :refer [walk postwalk]]]
             [clojure.java
              [io :as io]
              [shell :as sh]]
@@ -60,12 +60,17 @@
   [opts tag value]
   (read-config value opts))
 
+(defmethod reader 'path
+  [opts tag value]
+  (with-meta value {::tag 'path}))
+
 (defmethod transform 'path
   [opts tag config-map]
-  (walk (fn [v]
-          (if (= 'path (::tag (meta (second v))))
-            (update-in v [1] (fn [link] (get-in config-map link)))
-            v)) identity config-map))
+  (postwalk (fn [v]
+              (if (= 'path (::tag (meta v)))
+                (get-in config-map v)
+                v))
+            config-map))
 
 (defmethod transform 'schema
   [opts tag config-map]
