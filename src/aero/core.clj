@@ -15,6 +15,11 @@
   (cond (vector? value) (or (System/getenv (str (first value))) (second value))
         :otherwise (System/getenv (str value))))
 
+(defmethod reader 'envf
+  [opts tag [fmt & args]]
+  (apply format fmt
+         (map (partial reader nil 'env) args)))
+
 (defmethod reader 'cond
   [{:keys [profile]} tag value]
   (cond (contains? value profile) (clojure.core/get value profile)
@@ -36,12 +41,12 @@
   "Optional second argument is a map. Keys are :profile, indicating the
   profile for use with #cond"
   ([r {:keys [schema] :as opts}]
-   (let [config
-         (with-open [pr (java.io.PushbackReader. (io/reader r))]
-           (edn/read
-            {:eof nil
-             :default (partial reader (merge {:profile :default} opts))}
-            pr))]
+   (let [config (with-open [pr (java.io.PushbackReader. (io/reader r))]
+                  (edn/read
+                   {:eof nil
+                    :default (partial reader (merge {:profile :default
+                                                     :filepath (str r)} opts))}
+                   pr))]
      (when schema
        (s/validate schema config))
      config))
