@@ -1,15 +1,28 @@
 ;; Copyright © 2015, JUXT LTD.
 
 (ns aero.core
-  (:require
-   [clojure.edn :as edn]
-   [clojure.java.io :as io]
-   [clojure.string :refer (trim)]
-   [clojure.java.shell :as sh]
-   [schema.core :as s]
-   [clojure.walk :refer [postwalk]]))
+  (:require [clojure
+             [edn :as edn]
+             [string :refer [trim]]
+             [walk :refer [walk]]]
+            [clojure.java
+             [io :as io]
+             [shell :as sh]]
+            [schema.core :as s]))
 
+(declare read-config)
 (defmulti reader (fn [opts tag value] tag))
+(defmulti transform (fn [opts tag config-map] tag))
+
+(defmethod transform :default
+  [opts tag config-map]
+  config-map)
+
+(defmethod reader :default
+  [_ tag value]
+  (if tag
+    (with-meta value {::tag tag})
+    value))
 
 (defmethod reader 'env
   [opts tag value]
@@ -43,22 +56,37 @@
            value)
      (get value :default))))
 
-(defmethod reader :default
-  [_ _ value]
-  value)
+(defmethod reader 'file
+  [opts tag value]
+  (read-config value opts))
+
+(defmethod transform 'path
+  [opts tag config-map]
+  (walk (fn [v]
+          (if (= 'path (::tag (meta (second v))))
+            (update-in v [1] (fn [link] (get-in config-map link)))
+            v)) identity config-map))
+
+(defmethod transform 'schema
+  [opts tag config-map]
+  (let [schema (get-in opts [:schema])]
+    (if schema
+      (s/validate schema config-map)
+      (throw (java.lang.IllegalArgumentException.
+              ":schema not specified in opts map")))))
 
 (defn read-config
   "Optional second argument is a map. Keys are :profile, indicating the
   profile for use with #cond"
-  ([r {:keys [schema] :as opts}]
+  ([r {:keys [schema transforms] :as opts}]
    (let [config (with-open [pr (java.io.PushbackReader. (io/reader r))]
                   (edn/read
                    {:eof nil
                     :default (partial reader (merge {:profile :default
                                                      :filepath (str r)} opts))}
                    pr))]
-     (when schema
-       (s/validate schema config))
-     config))
-  ([r]
-   (read-config r {})))
+     (reduce (fn [acc tag]
+               (transform opts
+                          ((comp symbol name) tag)
+                          acc)) config transforms)))
+  ([r] (read-config r {})))
