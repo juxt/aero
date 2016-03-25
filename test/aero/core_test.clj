@@ -45,4 +45,6 @@
 (deftest envf-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= (format "Terminal is %s" (System/getenv "TERM"))
-         (:term config)))))
+           (:dumb-term config)))
+    (is (= (format "Terminal is %s" "smart")
+           (:smart-term config)))))

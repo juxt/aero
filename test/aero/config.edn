@@ -1,3 +1,4 @@
 {:greeting "Hello World!"
  :flavor #myflavor :favorite
- :term #envf ["Terminal is %s" TERM]}
+ :dumb-term #envf ["Terminal is %s" TERM]
+ :smart-term #envf ["Terminal is %s" [NONE "smart"]]}

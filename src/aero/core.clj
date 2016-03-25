@@ -18,7 +18,7 @@
 (defmethod reader 'envf
   [opts tag [fmt & args]]
   (apply format fmt
-         (map #(System/getenv (str %)) args)))
+         (map (partial reader nil 'env) args)))
 
 (defmethod reader 'cond
   [{:keys [profile]} tag value]
