@@ -1,10 +1,12 @@
 ;; Copyright © 2015, JUXT LTD.
 
 (ns aero.core-test
-  (:require [clojure.test :refer :all]
-            [aero.core :refer :all]
+  (:require [aero.core :refer :all]
+            [clojure
+             [edn :as edn]
+             [test :refer :all]]
             [clojure.java.io :as io]
-            [clojure.edn :as edn]))
+            [schema.core :as s]))
 
 (deftest basic-test
   (let [config (read-config "test/aero/config.edn")]
@@ -48,3 +50,30 @@
            (:dumb-term config)))
     (is (= (format "Terminal is %s" "smart")
            (:smart-term config)))))
+
+(deftest format-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= (format "My favorite flavor is %s %s" (System/getenv "TERM") :chocolate)
+           (:flavor-string config)))))
+
+(deftest path-test
+  (let [config (read-config "test/aero/config.edn" {:path true
+                                                    :transforms [:path]
+                                                    :profile :test
+                                                    :schema clojure.core/identity})]
+    (is (= (get-in config [:greeting])
+           (:test config)))))
+
+(deftest schema-test
+  (let [config (read-config "test/aero/withschema.edn"
+                            {:transforms [:path :schema]
+                             :schema {:greeting s/Str
+                                      :hello [s/Any]}})]
+    (is config)))
+
+(deftest remote-file-test
+  (let [config (read-config "test/aero/config.edn" {:path true
+                                                    :transforms [:path]
+                                                    :profile :test})]
+    (is (= (get-in config [:remote :greeting])
+           "str"))))

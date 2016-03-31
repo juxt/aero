@@ -170,6 +170,19 @@ Aero supports user-defined tag literals. Just extend the `reader` multimethod.
      :vanilla))
 ```
 
+## Transforms
+
+Transforms are post-processing steps run on the config-map. They can be introduced
+by extending the `transform` multimethod.
+
+``` clojure
+(defmethod transform 'keywordize-keys
+ [opts tag config-map]
+ (keywordize-keys config-map))
+```
+To activate a transform, specify in your opts map what order (if multiple) you'd
+like it to come in. `(read-config "config.edn" {:transform [:keywordize-keys]}`
+
 ## Support for Prismatic's schema
 
 A config can be given a :schema entry in the options argument, to specify a schema.
@@ -187,6 +200,7 @@ A config can be given a :schema entry in the options argument, to specify a sche
 (read-config
    "config.edn"
    {:profile profile
+    :transform [:schema]
     :schema ConfigSchema})
 ```
 
