@@ -77,3 +77,8 @@
                                                     :profile :test})]
     (is (= (get-in config [:remote :greeting])
            "str"))))
+
+(deftest nested-path-test
+  (let [config (read-config "test/aero/config.edn" {:path true
+                                                    :transforms [:path]})]
+    (is (= "Hello World!" (get-in config [:test-nested])))))

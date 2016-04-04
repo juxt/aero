@@ -67,9 +67,9 @@
 (defmethod transform 'path
   [opts tag config-map]
   (postwalk (fn [v]
-              (if (= 'path (::tag (meta v)))
-                (get-in config-map v)
-                v))
+              (if-not (= 'path (::tag (meta v)))
+                v
+                (recur (get-in config-map v))))
             config-map))
 
 (defmethod transform 'schema
