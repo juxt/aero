@@ -158,6 +158,39 @@ can specify multiple hostnames in a set.
                     :default 8082}}}
 ```
 
+### file
+
+Use to pull in another config file. This allows you to split your config files
+to prevent them from getting too large.
+
+``` clojure
+{:webserver #file "resources/webserver.edn"
+ :analytics #file "resources/analytics.edn"}
+```
+
+### path
+
+Used to specify a path (graph edge) into your config. This is an incredibly
+powerful tool to avoid duplicating values. The `#path` tag expects it's value to
+be a clojure vector resolveable by `get-in`. Take the following config map for
+example.
+
+``` clojure
+{:db-connection "datomic:dynamo://dynamodb"
+ :webserver
+  {:db #path [:db-connection]}
+ :analytics
+  {:db #path [:db-connection]}}
+```
+Both `:analytics` and `:webserver` will have their `:db` keys resolved
+to `"datomic:dynamo://dynamodb"`
+Paths are recursive too, a `#path` that points at another `#path`
+will resolve to the correct value. **Please** keep these simple,
+too many paths end up being difficult to reason about. Because the
+`#path` transform needs to reason about the *entire* context map,
+it's often best to put it as the last `:transform` in your `read-config`
+options map, that way all other tags should be resolved first.
+
 ### Define your own
 
 Aero supports user-defined tag literals. Just extend the `reader` multimethod.
@@ -182,6 +215,11 @@ by extending the `transform` multimethod.
 ```
 To activate a transform, specify in your opts map what order (if multiple) you'd
 like it to come in. `(read-config "config.edn" {:transform [:keywordize-keys]}`
+You can also specify options for a transform by adding an arbitrary collection
+or value to the opts map on the specified transforms key. For example to parameterize
+`schema` tranform, your opts map would look like this.
+`(read-config "config.edn" {:transform [:schema] :schema MySchema}`.
+The value at `:schema` will be availible to your tranform function.
 
 ## Support for Prismatic's schema
 
