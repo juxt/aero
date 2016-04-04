@@ -52,7 +52,7 @@
            (:smart-term config)))))
 
 (deftest format-test
-  (let [config (read-config "test/aero/config.edn")]
+  (let [config (read-config "test/aero/config.edn" {:transforms [:format]})]
     (is (= (format "My favorite flavor is %s %s" (System/getenv "TERM") :chocolate)
            (:flavor-string config)))))
 
