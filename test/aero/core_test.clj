@@ -52,7 +52,7 @@
            (:smart-term config)))))
 
 (deftest format-test
-  (let [config (read-config "test/aero/config.edn")]
+  (let [config (read-config "test/aero/config.edn" {:transforms [:format]})]
     (is (= (format "My favorite flavor is %s %s" (System/getenv "TERM") :chocolate)
            (:flavor-string config)))))
 
@@ -77,3 +77,8 @@
                                                     :profile :test})]
     (is (= (get-in config [:remote :greeting])
            "str"))))
+
+(deftest nested-path-test
+  (let [config (read-config "test/aero/config.edn" {:path true
+                                                    :transforms [:path]})]
+    (is (= "Hello World!" (get-in config [:test-nested])))))

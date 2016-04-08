@@ -35,10 +35,6 @@
   [opts tag [fmt & args]]
   (apply format fmt (map (partial reader opts 'env) args)))
 
-(defmethod reader 'format
-  [opts tag [fmt & args]]
-  (apply format fmt args))
-
 (defmethod reader 'cond
   [{:keys [profile]} tag value]
   (cond (contains? value profile) (clojure.core/get value profile)
@@ -64,12 +60,20 @@
   [opts tag value]
   (with-meta value {::tag 'path}))
 
+(defmethod transform 'format
+  [opts tag config-map]
+  (postwalk (fn [v]
+              (if (= 'format (::tag (meta v)))
+                (apply format (first v) (rest v))
+                v))
+            config-map))
+
 (defmethod transform 'path
   [opts tag config-map]
   (postwalk (fn [v]
-              (if (= 'path (::tag (meta v)))
-                (get-in config-map v)
-                v))
+              (if-not (= 'path (::tag (meta v)))
+                v
+                (recur (get-in config-map v))))
             config-map))
 
 (defmethod transform 'schema
