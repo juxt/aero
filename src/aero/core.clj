@@ -52,6 +52,17 @@
            value)
      (get value :default))))
 
+(defmethod reader 'user
+  [{:keys [user]} tag value]
+  (let [user (or user (-> (sh/sh "whoami") :out trim))]
+    (or
+     (some (fn [[k v]]
+             (when (or (= k user)
+                       (and (set? k) (contains? k user)))
+               v))
+           value)
+     (get value :default))))
+
 (defmethod reader 'file
   [opts tag value]
   (read-config value opts))
