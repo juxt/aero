@@ -75,9 +75,18 @@
             {:eof nil
              :default (partial reader (merge {:profile :default} opts))}
             pr))]
-     (postwalk (fn [v]
-                 (if-not (contains? (meta v) :ref)
-                   v
-                   (recur (get-in config v))))
-               config)))
+     (->> config
+          (postwalk (fn [v]
+                      (if-not (contains? (meta v) :ref)
+                        v
+                        (recur (get-in config v)))))
+          ;; Postwalk must be done twice as it may leave some
+          ;; references: "One more addition I’d like to make is that if
+          ;; the ^:ref resolution ends on a map/list/vector we run the
+          ;; postwalk step on it again, this is because ^:ref is not
+          ;; recursive unless it ends on another ^:ref." -- Gardner Vickers
+          (postwalk (fn [v]
+                      (if-not (contains? (meta v) :ref)
+                        v
+                        (recur (get-in config v))))))))
   ([r] (read-config r {})))
