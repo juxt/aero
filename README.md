@@ -89,7 +89,7 @@ Use `#env` to reference an environment variable.
 {:password #env DATABASE_URI}
 ```
 
-It is considered bad practice to use environment variables for passwords and other confidential information. This is because it is very easy for anyone to read a process's environment (e.g. via `ps -ef`). Environment variables are also commonly dumped out in a debugging sessions. Instead you should use `#include` (see below).
+It is considered bad practice to use environment variables for passwords and other confidential information. This is because it is very easy for anyone to read a process's environment (e.g. via `ps -ef`). Environment variables are also commonly dumped out in a debugging sessions. Instead you should use `#include` - see [here](#hide-passwords-in-local-private-files).
 
 ### or
 
@@ -180,8 +180,7 @@ Aero supports user-defined tag literals. Just extend the `reader` multimethod.
 
 To avoid duplication you can refer to other parts of you configuration file using `^:ref` metadata.
 
-The `^:ref` value should be a vector resolveable by `get-in`. Take the following config map for
-example.
+The `^:ref` value should be a vector resolveable by `get-in`. Take the following config map for example:
 
 ```clojure
 {:db-connection "datomic:dynamo://dynamodb"
@@ -196,7 +195,7 @@ to `"datomic:dynamo://dynamodb"`
 
 References are recursive. They can be used in `#include` files.
 
-## Useful patterns and advice
+## Recommended usage patterns, tips and advice
 
 ### Hide passwords in local private files
 
@@ -229,16 +228,13 @@ Define a dedicated namespace for config that reads the config and provides funct
   (get-in config [:webserver :port]))
 ```
 
-This way, you build a simple layer of indirection to insulate the parts
-of your program that access configuration from the evolving structure of
-the configuration file. If your configuration structure changes, you
-only have to change the wrappers, rather than locate and update all the
-places in your code where configuration is accessed.
+This way, you build a simple layer of indirection to insulate the parts of your program that access configuration from the evolving structure of the configuration file. If your configuration structure changes, you only have to change the wrappers, rather than locate and update all the places in your code where configuration is accessed.
 
-Your program should call the `config` function, usually with an argument
-specifying the configuration profile. It then returned value passes the
-returned value through functions or via lexical scope (possibly
-components).
+Your program should call the `config` function, usually with an argument specifying the configuration profile. It then returned value passes the returned value through functions or via lexical scope (possibly components).
+
+### Using Aero with Plumatic schema
+
+Aero has frictionless integration with [Plumatic Schema](https://github.com/plumatic/schema). If you wish, specify your configuration schemas and run `check` or `validate` against the data returned from `read-config`.
 
 ### Using Aero with components
 
@@ -272,17 +268,70 @@ If you are using Stuart Sierra's
       {})))
 ```
 
+However, another useful pattern you might consider is to keep your system map and configuration map aligned.
+
+For example, imagine you have a config file:
+
+```clojure
+{:listener {:port 8080}
+ :database {:uri "datomic:mem://myapp/dev"}}
+```
+
+Here we create a system as normal but with the key difference that we configure the system map after we have created using `merge-with merge`. This avoids all the boilerplate required in passing config around the various component constructors.
+
+```clojure
+(defrecord Listener [database port]
+  Lifecycle …)
+
+(defn new-listener []
+  (using (map->Listener {}) [:database])
+
+(defrecord Database [uri]
+  Lifecycle …)
+
+(defn new-database []
+  (map->Database {}))
+
+(defn new-system-map
+  "Create a configuration-free system"
+  []
+  (system-map
+   :listener (new-listener)
+   :database (new-database)))
+
+(defn configure [system profile]
+  (let [config (aero/read-config "config.edn" {:profile profile})]
+    (merge-with merge system config)))
+
+(defn new-dependency-map [] {})
+
+(defn new-system
+  "Create the production system"
+  [profile]
+  (-> (new-system-map)
+      (configure profile)
+      (system-using (new-dependency-map))))
+```
+
+Also, if you follow the pattern described [here](https://juxt.pro/blog/posts/component-meet-schema.html) you can also ensure accurate configuration is given to each component without having to maintain explicit schemas. This way, you only verify the config that you are actually using.
+
+### Feature toggles
+
+Aero is a great way to implement [feature toggles](http://martinfowler.com/articles/feature-toggles.html).
+
+### Use a single configuration file
+
+If at all possible, try to avoid having lots of configuration files and stick with a single file. That way, you're encouraged to keep configuration down to a minimum. Having a single file is also useful because it can be more easily edited, published, emailed, [watched](https://github.com/juxt/dirwatch) for changes. It is generally better to surface complexity than hide it away.
+
 ## References
 
 Aero is built on Clojure's [edn](https://github.com/edn-format/edn).
 
-Aero is influenced by [nomad](https://github.com/james-henderson/nomad),
-but purposely avoids instance, environment and private config.
+Aero is influenced by [nomad](https://github.com/james-henderson/nomad), but purposely avoids instance, environment and private config.
 
 ## Acknowledgments
 
-Thanks to the following people for inspiration, contributions,
-feedback and suggestions.
+Thanks to the following people for inspiration, contributions, feedback and suggestions.
 
 * Gardner Vickers
 
