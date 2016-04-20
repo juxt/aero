@@ -16,7 +16,7 @@ Add the following dependency to your `project.clj` file
 
 ## Status
 
-Please note that being a 0.x.y version indicates the provisional status
+Please note that being a beta version indicates the provisional status
 of this library, and that features are subject to change.
 
 ## Getting started
