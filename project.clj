@@ -5,6 +5,6 @@
   :url "http://github.com/juxt/aero"
   :license {:name "The MIT License"
             :url "http://opensource.org/licenses/MIT"}
-  :dependencies [[prismatic/schema "1.0.3"]]
+  :dependencies []
 
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0"]]}})

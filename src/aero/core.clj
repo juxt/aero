@@ -7,8 +7,7 @@
              [walk :refer [walk postwalk]]]
             [clojure.java
              [io :as io]
-             [shell :as sh]]
-            [schema.core :as s]))
+             [shell :as sh]]))
 
 (declare read-config)
 (defmulti reader (fn [opts tag value] tag))
@@ -87,18 +86,10 @@
                 (recur (get-in config-map v))))
             config-map))
 
-(defmethod transform 'schema
-  [opts tag config-map]
-  (let [schema (get-in opts [:schema])]
-    (if schema
-      (s/validate schema config-map)
-      (throw (java.lang.IllegalArgumentException.
-              ":schema not specified in opts map")))))
-
 (defn read-config
   "Optional second argument is a map. Keys are :profile, indicating the
   profile for use with #cond"
-  ([r {:keys [schema transforms] :as opts}]
+  ([r {:keys [transforms] :as opts}]
    (let [config (with-open [pr (java.io.PushbackReader. (io/reader r))]
                   (edn/read
                    {:eof nil

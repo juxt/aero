@@ -5,8 +5,7 @@
             [clojure
              [edn :as edn]
              [test :refer :all]]
-            [clojure.java.io :as io]
-            [schema.core :as s]))
+            [clojure.java.io :as io]))
 
 (deftest basic-test
   (let [config (read-config "test/aero/config.edn")]
@@ -58,17 +57,9 @@
 
 (deftest path-test
   (let [config (read-config "test/aero/config.edn" {:transforms [:path]
-                                                    :profile :test
-                                                    :schema clojure.core/identity})]
+                                                    :profile :test})]
     (is (= (get-in config [:greeting])
            (:test config)))))
-
-(deftest schema-test
-  (let [config (read-config "test/aero/withschema.edn"
-                            {:transforms [:path :schema]
-                             :schema {:greeting s/Str
-                                      :hello [s/Any]}})]
-    (is config)))
 
 (deftest remote-file-test
   (let [config (read-config "test/aero/config.edn" {:transforms [:path]
