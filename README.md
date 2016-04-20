@@ -1,4 +1,4 @@
-# aero
+# Aero
 
 (<b>a</b>ero is <b>e</b>dn <b>r</b>eally, <b>o</b>k?)
 
@@ -104,7 +104,10 @@ Use `#or` when you want to provide a list of possibilities, perhaps with a defau
 `#join` is used as a string builder, useful in a variety of situations such as building up connection strings.
 
 ``` clojure
-{:url #join ["jdbc:postgresql://psq-prod/prod?user=" [#env PROD_USER] &password=" [#env PROD_PASSWD]]}
+{:url #join ["jdbc:postgresql://psq-prod/prod?user="
+             [#env PROD_USER]
+             "&password="
+             [#env PROD_PASSWD]]}
 ```
 
 ### profile
@@ -116,8 +119,8 @@ Use profile as a kind of reader conditional.
 ```clojure
 {:webserver
   {:port #profile {:default 8000
-                  :dev 8001
-                  :test 8002}}}
+                   :dev 8001
+                   :test 8002}}}
 ```
 
 You can specify the value of __profile__ when you read the config.
@@ -133,7 +136,7 @@ which will return
   {:port 8001}}
 ```
 
-(`#profile` replaces the now deprecated `#cond`, found in previous versions of aero)
+(`#profile` replaces the now deprecated `#cond`, found in previous versions of Aero)
 
 ### hostname
 
@@ -157,8 +160,8 @@ Use to include another config file. This allows you to split your config files
 to prevent them from getting too large.
 
 ``` clojure
-{:webserver #file "resources/webserver.edn"
- :analytics #file "resources/analytics.edn"}
+{:webserver #include "resources/webserver.edn"
+ :analytics #include "resources/analytics.edn"}
 ```
 
 ### Define your own
@@ -191,7 +194,7 @@ example.
 Both `:analytics` and `:webserver` will have their `:db` keys resolved
 to `"datomic:dynamo://dynamodb"`
 
-References are recursive too and can be used in `#include` files.
+References are recursive. They can be used in `#include` files.
 
 ## Useful patterns and advice
 
@@ -237,7 +240,7 @@ specifying the configuration profile. It then returned value passes the
 returned value through functions or via lexical scope (possibly
 components).
 
-## How to use Aero with components
+### Using Aero with components
 
 If you are using Stuart Sierra's
 [component[(https://github.com/stuartsierra/component) library, here's how you might integrate Aero.
