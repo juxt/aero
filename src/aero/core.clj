@@ -1,13 +1,12 @@
-;; Copyright © 2015, JUXT LTD.
+;; Copyright © 2015-2016, JUXT LTD.
 
 (ns aero.core
-  (:require [clojure
-             [edn :as edn]
-             [string :refer [trim]]
-             [walk :refer [walk postwalk]]]
-            [clojure.java
-             [io :as io]
-             [shell :as sh]]))
+  (:require
+   [clojure.edn :as edn]
+   [clojure.string :refer [trim]]
+   [clojure.walk :refer [walk postwalk]]
+   [clojure.java.io :as io]
+   [clojure.java.shell :as sh]))
 
 (declare read-config)
 
