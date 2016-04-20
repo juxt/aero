@@ -30,11 +30,16 @@
   [opts tag [fmt & args]]
   (apply format fmt (map (partial reader opts 'env) args)))
 
-(defmethod reader 'cond
+(defmethod reader 'profile
   [{:keys [profile]} tag value]
   (cond (contains? value profile) (clojure.core/get value profile)
         (contains? value :default) (clojure.core/get value :default)
         :otherwise nil))
+
+;; Deprecated
+(defmethod reader 'cond
+  [opts tag value]
+  (reader opts 'profile value))
 
 (defmethod reader 'hostname
   [{:keys [hostname]} tag value]

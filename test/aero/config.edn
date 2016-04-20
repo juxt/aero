@@ -5,4 +5,8 @@
  :flavor-string #join ["My favorite flavor is " #env [TERM "flaa"] " " #myflavor :favorite]
  :test ^:ref [:greeting]
  :remote #file "test/aero/included.edn"
- :test-nested ^:ref [:test]}
+ :test-nested ^:ref [:test]
+ :port #profile {:dev 8000
+                 :prod 80}
+ :old-port #cond {:dev 9000
+                  :prod 90}}

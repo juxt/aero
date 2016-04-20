@@ -68,3 +68,16 @@
 (deftest nested-ref-test
   (let [config (read-config "test/aero/config.edn" {})]
     (is (= "Hello World!" (get-in config [:test-nested])))))
+
+(deftest profile-test
+  (let [config (read-config "test/aero/config.edn" {:profile :dev})]
+    (is (= 8000 (:port config))))
+  (let [config (read-config "test/aero/config.edn" {:profile :prod})]
+    (is (= 80 (:port config)))))
+
+;; cond is deprecated, just make sure it still works!
+(deftest cond-test
+  (let [config (read-config "test/aero/config.edn" {:profile :dev})]
+    (is (= 9000 (:old-port config))))
+  (let [config (read-config "test/aero/config.edn" {:profile :prod})]
+    (is (= 90 (:old-port config)))))
