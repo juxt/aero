@@ -56,12 +56,12 @@
            (:flavor-string config)))))
 
 (deftest ref-test
-  (let [config (read-config "test/aero/config.edn" {:profile :test})]
+  (let [config (read-config "test/aero/config.edn")]
     (is (= (get-in config [:greeting])
            (:test config)))))
 
 (deftest remote-file-test
-  (let [config (read-config "test/aero/config.edn" {:profile :test})]
+  (let [config (read-config "test/aero/config.edn")]
     (is (= (get-in config [:remote :greeting])
            "str"))))
 
