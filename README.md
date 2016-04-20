@@ -105,9 +105,9 @@ Use `#or` when you want to provide a list of possibilities, perhaps with a defau
 
 ``` clojure
 {:url #join ["jdbc:postgresql://psq-prod/prod?user="
-             [#env PROD_USER]
+             #env PROD_USER
              "&password="
-             [#env PROD_PASSWD]]}
+             #env PROD_PASSWD]}
 ```
 
 ### profile
