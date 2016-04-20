@@ -65,27 +65,17 @@ While it is good to keep config in source code control, it is important to ensur
 
 ### Config should be data
 
-While it can be very flexible to have 'clever' configuration 'programs',
-it can be
-[unsafe](http://www.learningclojure.com/2013/02/clojures-reader-is-unsafe.html),
-lead to exploits and compromise security. Configuration is a key input
-to a program. Always use data for configuration and
-[avoid turing-complete](http://langsec.org/occupy) languages!
+While it can be very flexible to have 'clever' configuration 'programs', it can be [unsafe](http://www.learningclojure.com/2013/02/clojures-reader-is-unsafe.html), lead to exploits and compromise security. Configuration is a key input to a program. Always use data for configuration and [avoid turing-complete](http://langsec.org/occupy) languages!
 
 ### Use environment variables sparingly
 
-We suggest using environment variables judiciously and sparingly, the
-way Unix intends, and not [go mad](http://12factor.net/config). After
-all, we want to keep configuration explicit and intentional.
+We suggest using environment variables judiciously and sparingly, the way Unix intends, and not [go mad](http://12factor.net/config). After all, we want to keep configuration explicit and intentional.
 
-Also, see these arguments
-[against](https://gist.github.com/telent/9742059).
+Also, see these arguments [against](https://gist.github.com/telent/9742059).
 
 ### Use edn
 
-Fortunately for Clojure developers like us, most of the tech to read
-configuration in a safe, secure and extensible way already exists in the
-Clojure core library (EDN).
+Fortunately for Clojure developers like us, most of the tech to read configuration in a safe, secure and extensible way already exists in the Clojure core library (EDN).
 
 ## Tag literals
 
@@ -96,41 +86,38 @@ Aero provides a small library of tag literals.
 Use `#env` to reference an environment variable.
 
 ```clojure
-{:password #env DATABASE_PASSWORD}
+{:password #env DATABASE_URI}
 ```
 
-When you need to hide a configuration detail, such as a password, use
-this feature. If you're using AWS Beanstalk, you can set environment
-variables in the console, which keeps them safe from unauthorised
-access.
+It is considered bad practice to use environment variables for passwords and other confidential information. This is because it is very easy for anyone to read a process's environment (e.g. via `ps -ef`). Environment variables are also commonly dumped out in a debugging sessions. Instead you should use `#include` (see below).
 
-Use `#env` with a vector to provide a default if the environment variable doesn't exist.
+### or
+
+Use `#or` when you want to provide a list of possibilities, perhaps with a default and the end.
 
 ```clojure
-{:password #env [PORT 8080]}
+{:password #or [#env PORT 8080]}
 ```
 
-### envf
+### join
 
-Like `#env`, `#envf` formats a string using `clojure.core/format` with environment
-variables specified in a vector. This is useful for building up things like
-connection strings.
+`#join` is used as a string builder, useful in a variety of situations such as building up connection strings.
 
 ``` clojure
-{:url #envf ["jdbc:postgresql://psq-prod/prod?user=%s&password=%s" PROD_USER PROD_PASSWD]}
+{:url #join ["jdbc:postgresql://psq-prod/prod?user=" [#env PROD_USER] &password=" [#env PROD_PASSWD]]}
 ```
 
-### cond
+### profile
 
-Use cond as a kind of reader conditional.
+Use profile as a kind of reader conditional.
 
-`#cond` expects a map, from which is extracts the entry corresponding to the of __profile__.
+`#profile` expects a map, from which is extracts the entry corresponding to the of __profile__.
 
 ```clojure
 {:webserver
-  {:port #cond {:default 8000
-                :dev 8001
-                :test 8002}}}
+  {:port #profile {:default 8000
+                  :dev 8001
+                  :test 8002}}}
 ```
 
 You can specify the value of __profile__ when you read the config.
@@ -146,6 +133,8 @@ which will return
   {:port 8001}}
 ```
 
+(`#profile` replaces the now deprecated `#cond`, found in previous versions of aero)
+
 ### hostname
 
 Use when config has to differ from host to host, using the hostname. You
@@ -158,38 +147,19 @@ can specify multiple hostnames in a set.
                     :default 8082}}}
 ```
 
-### file
+### user
 
-Use to pull in another config file. This allows you to split your config files
+`#user` is like `#hostname`, but switches on the user.
+
+### include
+
+Use to include another config file. This allows you to split your config files
 to prevent them from getting too large.
 
 ``` clojure
 {:webserver #file "resources/webserver.edn"
  :analytics #file "resources/analytics.edn"}
 ```
-
-### path
-
-Used to specify a path (graph edge) into your config. This is an incredibly
-powerful tool to avoid duplicating values. The `#path` tag expects it's value to
-be a clojure vector resolveable by `get-in`. Take the following config map for
-example.
-
-``` clojure
-{:db-connection "datomic:dynamo://dynamodb"
- :webserver
-  {:db #path [:db-connection]}
- :analytics
-  {:db #path [:db-connection]}}
-```
-Both `:analytics` and `:webserver` will have their `:db` keys resolved
-to `"datomic:dynamo://dynamodb"`
-Paths are recursive too, a `#path` that points at another `#path`
-will resolve to the correct value. **Please** keep these simple,
-too many paths end up being difficult to reason about. Because the
-`#path` transform needs to reason about the *entire* context map,
-it's often best to put it as the last `:transform` in your `read-config`
-options map, that way all other tags should be resolved first.
 
 ### Define your own
 
@@ -203,46 +173,43 @@ Aero supports user-defined tag literals. Just extend the `reader` multimethod.
      :vanilla))
 ```
 
-## Transforms
+## Using `^:ref` metadata for references
 
-Transforms are post-processing steps run on the config-map. They can be introduced
-by extending the `transform` multimethod.
+To avoid duplication you can refer to other parts of you configuration file using `^:ref` metadata.
 
-``` clojure
-(defmethod transform 'keywordize-keys
- [opts tag config-map]
- (keywordize-keys config-map))
-```
-To activate a transform, specify in your opts map what order (if multiple) you'd
-like it to come in. `(read-config "config.edn" {:transform [:keywordize-keys]}`
-You can also specify options for a transform by adding an arbitrary collection
-or value to the opts map on the specified transforms key. For example to parameterize
-`schema` tranform, your opts map would look like this.
-`(read-config "config.edn" {:transform [:schema] :schema MySchema}`.
-The value at `:schema` will be availible to your tranform function.
-
-## Support for Prismatic's schema
-
-A config can be given a :schema entry in the options argument, to specify a schema.
-
+The `^:ref` value should be a vector resolveable by `get-in`. Take the following config map for
+example.
 
 ```clojure
-(ns myproj.config
-  (:require [schema.core :as s]))
-
-(s/defschema UserPort (s/both s/Int (s/pred #(<= 1024 % 65535))))
-
-(s/defschema ConfigSchema
-  {:webserver {:port UserPort}})
-
-(read-config
-   "config.edn"
-   {:profile profile
-    :transform [:schema]
-    :schema ConfigSchema})
+{:db-connection "datomic:dynamo://dynamodb"
+ :webserver
+  {:db ^:ref [:db-connection]}
+ :analytics
+  {:db ^:ref [:db-connection]}}
 ```
 
-## Good advice: Use functions to wrap access to your configuration.
+Both `:analytics` and `:webserver` will have their `:db` keys resolved
+to `"datomic:dynamo://dynamodb"`
+
+References are recursive too and can be used in `#include` files.
+
+## Useful patterns and advice
+
+### Hide passwords in local private files
+
+Passwords and other confidential information should not be stored in version control, nor be specified in environment variables. One alternative option is to create a private file in the HOME directory that contains only the information that must be kept outside version control (it is good advice that everything else be subject to configuration management via version control).
+
+Here is how this can be achieved:
+
+```clojure
+{:secrets #include #join [#env HOME "/.secrets.edn"]
+
+ :aws-secret-access-key
+  #profile {:test ^:ref [:secrets :aws-test-key]
+            :prod ^:ref [:secrets :aws-prod-key]}}
+```
+
+### Use functions to wrap access to your configuration.
 
 Here's some good advice on using Aero in your own programs.
 
