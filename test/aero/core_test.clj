@@ -57,8 +57,7 @@
            (:flavor-string config)))))
 
 (deftest path-test
-  (let [config (read-config "test/aero/config.edn" {:path true
-                                                    :transforms [:path]
+  (let [config (read-config "test/aero/config.edn" {:transforms [:path]
                                                     :profile :test
                                                     :schema clojure.core/identity})]
     (is (= (get-in config [:greeting])
@@ -72,13 +71,11 @@
     (is config)))
 
 (deftest remote-file-test
-  (let [config (read-config "test/aero/config.edn" {:path true
-                                                    :transforms [:path]
+  (let [config (read-config "test/aero/config.edn" {:transforms [:path]
                                                     :profile :test})]
     (is (= (get-in config [:remote :greeting])
            "str"))))
 
 (deftest nested-path-test
-  (let [config (read-config "test/aero/config.edn" {:path true
-                                                    :transforms [:path]})]
+  (let [config (read-config "test/aero/config.edn" {:transforms [:path]})]
     (is (= "Hello World!" (get-in config [:test-nested])))))
