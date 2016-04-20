@@ -21,14 +21,11 @@
 
 (defmethod reader 'env
   [opts tag value]
-  (cond
-    (vector? value) (or (System/getenv (str (first value)))
-                        (second value))
-    :otherwise (System/getenv (str value))))
+  (System/getenv (str value)))
 
-(defmethod reader 'envf
-  [opts tag [fmt & args]]
-  (apply format fmt (map (partial reader opts 'env) args)))
+(defmethod reader 'or
+  [opts tag value]
+  (first (filter some? value)))
 
 (defmethod reader 'profile
   [{:keys [profile]} tag value]
