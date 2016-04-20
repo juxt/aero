@@ -75,13 +75,6 @@
   (let [config (read-config "test/aero/config.edn" {:profile :prod})]
     (is (= 80 (:port config)))))
 
-;; cond is deprecated, just make sure it still works!
-(deftest cond-test
-  (let [config (read-config "test/aero/config.edn" {:profile :dev})]
-    (is (= 9000 (:old-port config))))
-  (let [config (read-config "test/aero/config.edn" {:profile :prod})]
-    (is (= 90 (:old-port config)))))
-
 (deftest dummy-test
   (let [config (read-config "test/aero/config.edn" {:profile :dev})]
     (is (= "dummy" (:dummy config)))))
