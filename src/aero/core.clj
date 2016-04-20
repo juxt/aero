@@ -60,6 +60,11 @@
            value)
      (get value :default))))
 
+(defmethod reader 'include
+  [opts tag value]
+  (read-config value opts))
+
+;; Deprecated
 (defmethod reader 'file
   [opts tag value]
   (read-config value opts))
