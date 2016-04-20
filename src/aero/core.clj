@@ -56,7 +56,10 @@
 
 (defmethod reader 'include
   [opts tag value]
-  (read-config value opts))
+  (let [f (io/file value)]
+    (if (.exists f)
+      (read-config value opts)
+      {:aero/warning (format "Configuration file does not exist: %s" f)})))
 
 (defmethod reader 'join
   [opts tag value]
