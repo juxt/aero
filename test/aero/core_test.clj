@@ -78,3 +78,15 @@
 (deftest dummy-test
   (let [config (read-config "test/aero/config.edn" {:profile :dev})]
     (is (= "dummy" (:dummy config)))))
+
+(deftest dangling-ref-test
+  (is
+   (=
+    {:user {:favorite-color :blue}
+     :gardner {:favorite-color :blue}
+     :color :blue}
+    (read-config (java.io.StringReader.
+                  (binding [*print-meta* true]
+                    (pr-str {:user ^:ref [:gardner]
+                             :gardner {:favorite-color ^:ref [:color]}
+                             :color :blue})))))))
