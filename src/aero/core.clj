@@ -33,11 +33,6 @@
         (contains? value :default) (clojure.core/get value :default)
         :otherwise nil))
 
-;; Deprecated
-(defmethod reader 'cond
-  [opts tag value]
-  (reader opts 'profile value))
-
 (defmethod reader 'hostname
   [{:keys [hostname]} tag value]
   (let [hostn (or hostname (-> (sh/sh "hostname") :out trim))]
@@ -61,11 +56,6 @@
      (get value :default))))
 
 (defmethod reader 'include
-  [opts tag value]
-  (read-config value opts))
-
-;; Deprecated
-(defmethod reader 'file
   [opts tag value]
   (read-config value opts))
 
