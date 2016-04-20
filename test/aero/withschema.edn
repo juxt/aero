@@ -1,2 +1,0 @@
-{:greeting #path [:hello 1]
- :hello [:world "str"]}

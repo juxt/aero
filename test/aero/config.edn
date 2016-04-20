@@ -2,7 +2,7 @@
  :flavor #myflavor :favorite
  :dumb-term #envf ["Terminal is %s" TERM]
  :smart-term #envf ["Terminal is %s" [NONE "smart"]]
- :flavor-string #format ["My favorite flavor is %s %s" #env [TERM "flaa"] #myflavor :favorite]
- :test #path [:greeting]
- :remote #file "test/aero/withschema.edn"
- :test-nested #path [:test]}
+ :flavor-string #join ["My favorite flavor is " #env [TERM "flaa"] " " #myflavor :favorite]
+ :test ^:path [:greeting]
+ :remote #file "test/aero/included.edn"
+ :test-nested ^:path [:test]}

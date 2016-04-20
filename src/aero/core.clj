@@ -10,12 +10,8 @@
              [shell :as sh]]))
 
 (declare read-config)
-(defmulti reader (fn [opts tag value] tag))
-(defmulti transform (fn [opts tag config-map] tag))
 
-(defmethod transform :default
-  [opts tag config-map]
-  config-map)
+(defmulti reader (fn [opts tag value] tag))
 
 (defmethod reader :default
   [_ tag value]
@@ -66,38 +62,23 @@
   [opts tag value]
   (read-config value opts))
 
-(defmethod reader 'path
+(defmethod reader 'join
   [opts tag value]
-  (with-meta value {::tag 'path}))
-
-(defmethod transform 'format
-  [opts tag config-map]
-  (postwalk (fn [v]
-              (if (= 'format (::tag (meta v)))
-                (apply format (first v) (rest v))
-                v))
-            config-map))
-
-(defmethod transform 'path
-  [opts tag config-map]
-  (postwalk (fn [v]
-              (if-not (= 'path (::tag (meta v)))
-                v
-                (recur (get-in config-map v))))
-            config-map))
+  (apply str value))
 
 (defn read-config
   "Optional second argument is a map. Keys are :profile, indicating the
   profile for use with #cond"
-  ([r {:keys [transforms] :as opts}]
-   (let [config (with-open [pr (java.io.PushbackReader. (io/reader r))]
-                  (edn/read
-                   {:eof nil
-                    :default (partial reader (merge {:profile :default
-                                                     :filepath (str r)} opts))}
-                   pr))]
-     (reduce (fn [acc tag]
-               (transform opts
-                          ((comp symbol name) tag)
-                          acc)) config transforms)))
+  ([r opts]
+   (let [config
+         (with-open [pr (java.io.PushbackReader. (io/reader r))]
+           (edn/read
+            {:eof nil
+             :default (partial reader (merge {:profile :default} opts))}
+            pr))]
+     (postwalk (fn [v]
+                 (if-not (contains? (meta v) :path)
+                   v
+                   (recur (get-in config v))))
+               config)))
   ([r] (read-config r {})))
