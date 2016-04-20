@@ -55,7 +55,7 @@
     (is (= (format "My favorite flavor is %s %s" (System/getenv "TERM") :chocolate)
            (:flavor-string config)))))
 
-(deftest path-test
+(deftest ref-test
   (let [config (read-config "test/aero/config.edn" {:profile :test})]
     (is (= (get-in config [:greeting])
            (:test config)))))
@@ -65,6 +65,6 @@
     (is (= (get-in config [:remote :greeting])
            "str"))))
 
-(deftest nested-path-test
+(deftest nested-ref-test
   (let [config (read-config "test/aero/config.edn" {})]
     (is (= "Hello World!" (get-in config [:test-nested])))))

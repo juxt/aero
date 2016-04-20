@@ -3,6 +3,6 @@
  :dumb-term #envf ["Terminal is %s" TERM]
  :smart-term #envf ["Terminal is %s" [NONE "smart"]]
  :flavor-string #join ["My favorite flavor is " #env [TERM "flaa"] " " #myflavor :favorite]
- :test ^:path [:greeting]
+ :test ^:ref [:greeting]
  :remote #file "test/aero/included.edn"
- :test-nested ^:path [:test]}
+ :test-nested ^:ref [:test]}

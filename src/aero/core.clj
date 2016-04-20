@@ -77,7 +77,7 @@
              :default (partial reader (merge {:profile :default} opts))}
             pr))]
      (postwalk (fn [v]
-                 (if-not (contains? (meta v) :path)
+                 (if-not (contains? (meta v) :ref)
                    v
                    (recur (get-in config v))))
                config)))
