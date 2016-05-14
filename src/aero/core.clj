@@ -56,25 +56,48 @@
 
 (defmethod reader 'include
   [opts tag value]
-  (let [f (io/file value)]
-    (if (.exists f)
-      (read-config value opts)
-      {:aero/warning (format "Configuration file does not exist: %s" f)})))
+  (read-config value opts))
 
 (defmethod reader 'join
   [opts tag value]
   (apply str value))
 
+(defn- resolve-file-path
+  [r opts]
+  (let [t (type r)]
+    (cond (= t java.net.URL) ;; io.resource is a java.net.URL
+          (recur (.getFile r) opts)
+
+          (= t java.io.StringReader)
+          {:file r
+           :parent-path ""}
+
+          :else ;; asuming string representing a file path
+          (let [ior (io/file r)
+                fp (if (.isAbsolute ior)
+                     (.getPath ior)
+                     (str (:relative-path opts) (.getPath ior)))
+                iof (io/file fp)]
+            (if (.exists iof)
+              {:file fp
+               :parent-path (str (.getParent iof) "/")}
+              {:aero/warning (format "Configuration file does not exist: %s" fp)})))))
+
 (defn read-config
   "Optional second argument is a map. Keys are :profile, indicating the
   profile for use with #cond"
   ([r opts]
-   (let [config
-         (with-open [pr (java.io.PushbackReader. (io/reader r))]
-           (edn/read
-            {:eof nil
-             :default (partial reader (merge {:profile :default} opts))}
-            pr))]
+   (let [fp (resolve-file-path r opts)
+         config
+         (if (:warning fp)
+           fp
+           (with-open [pr (java.io.PushbackReader. (io/reader (:file fp)))]
+             (edn/read
+              {:eof nil
+               :default (partial reader (merge {:profile :default
+                                                :relative-path (:parent-path fp)}
+                                               opts))}
+              pr)))]
      (->> config
           (postwalk (fn [v]
                       (if-not (contains? (meta v) :ref)

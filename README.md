@@ -159,9 +159,11 @@ can specify multiple hostnames in a set.
 Use to include another config file. This allows you to split your config files
 to prevent them from getting too large.
 
+Note: `#include` will respect relative file paths in respect to the config files path *NOT* the current working directory.
+
 ``` clojure
-{:webserver #include "resources/webserver.edn"
- :analytics #include "resources/analytics.edn"}
+{:webserver #include "webserver.edn"
+ :analytics #include "analytics.edn"}
 ```
 
 ### Define your own

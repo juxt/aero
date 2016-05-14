@@ -79,6 +79,10 @@
   (let [config (read-config "test/aero/config.edn" {:profile :dev})]
     (is (= "dummy" (:dummy config)))))
 
+(deftest resource-test
+  (let [config (read-config (io/resource "test.edn") {:profile :dev})]
+    (is (= config {:speak {:hello :world}}))))
+
 (deftest dangling-ref-test
   (is
    (=
