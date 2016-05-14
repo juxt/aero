@@ -4,7 +4,7 @@
  :smart-term #join ["Terminal is " #or [#env NONE "smart"]]
  :flavor-string #join ["My favorite flavor is " #or [#env TERM "flaa"] " " #myflavor :favorite]
  :test ^:ref [:greeting]
- :remote #include "test/aero/included.edn"
+ :remote #include "included.edn"
  :test-nested ^:ref [:test]
  :port #profile {:dev 8000
                  :prod 80}
