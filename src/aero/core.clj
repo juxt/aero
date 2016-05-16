@@ -62,6 +62,17 @@
   [opts tag value]
   (apply str value))
 
+(defn- get-in-ref
+  [config]
+  (letfn [(get-in-conf [m]
+            (postwalk
+             (fn [v]
+               (if-not (contains? (meta v) :ref)
+                 v
+                 (get-in-conf (get-in config v))))
+             m))]
+    (get-in-conf config)))
+
 (defn- resolve-file-path
   [r opts]
   (let [t (type r)]
@@ -98,18 +109,5 @@
                                                 :relative-path (:parent-path fp)}
                                                opts))}
               pr)))]
-     (->> config
-          (postwalk (fn [v]
-                      (if-not (contains? (meta v) :ref)
-                        v
-                        (recur (get-in config v)))))
-          ;; Postwalk must be done twice as it may leave some
-          ;; references: "One more addition I’d like to make is that if
-          ;; the ^:ref resolution ends on a map/list/vector we run the
-          ;; postwalk step on it again, this is because ^:ref is not
-          ;; recursive unless it ends on another ^:ref." -- Gardner Vickers
-          (postwalk (fn [v]
-                      (if-not (contains? (meta v) :ref)
-                        v
-                        (recur (get-in config v))))))))
+     (get-in-ref config)))
   ([r] (read-config r {})))

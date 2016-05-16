@@ -88,9 +88,11 @@
    (=
     {:user {:favorite-color :blue}
      :gardner {:favorite-color :blue}
+     :karl {:favorite-color :blue}
      :color :blue}
     (read-config (java.io.StringReader.
                   (binding [*print-meta* true]
-                    (pr-str {:user ^:ref [:gardner]
+                    (pr-str {:user ^:ref [:karl]
                              :gardner {:favorite-color ^:ref [:color]}
+                             :karl ^:ref [:gardner]
                              :color :blue})))))))
