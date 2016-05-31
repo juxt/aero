@@ -1,5 +1,7 @@
 # Aero
 
+[![Join the chat at https://gitter.im/juxt/aero](https://badges.gitter.im/juxt/aero.svg)](https://gitter.im/juxt/aero?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 (<b>a</b>ero is <b>e</b>dn <b>r</b>eally, <b>o</b>k?)
 
 A small library for explicit, intentful configuration.
