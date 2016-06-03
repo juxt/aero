@@ -14,9 +14,7 @@
 
 (defmethod reader :default
   [_ tag value]
-  (if tag
-    (with-meta value {::tag tag})
-    value))
+  (throw (ex-info (format "No reader for tag %s" tag) {:tag tag :value value})))
 
 (defmethod reader 'env
   [opts tag value]
