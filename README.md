@@ -163,11 +163,26 @@ can specify multiple hostnames in a set.
 Use to include another config file. This allows you to split your config files
 to prevent them from getting too large.
 
-Note: `#include` will respect relative file paths in respect to the config files path *NOT* the current working directory.
-
 ``` clojure
 {:webserver #include "webserver.edn"
  :analytics #include "analytics.edn"}
+```
+
+NOTE: By default `#include` will attempt to resolve the file to be included *relative* to the
+config file it's being included from. (this won't work for jars)
+
+You can provide your own custom resolver to replace the default behaviour or use one that
+aero provides (`resource-resolver`, `root-resolver`). For example
+
+```
+(require '[aero.core :refer (read-config resource-resolver)])
+(read-config "config.edn" {:resolver resource-resolver})
+```
+
+You can also provide a map as a resolver. For example
+
+```
+(read-config "config.edn" {:resolver {"webserver.edn" "resources/webserver/config.edn"}})
 ```
 
 ### Define your own

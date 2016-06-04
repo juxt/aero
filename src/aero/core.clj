@@ -26,8 +26,8 @@
 
 (defmethod reader 'profile
   [{:keys [profile]} tag value]
-  (cond (contains? value profile) (clojure.core/get value profile)
-        (contains? value :default) (clojure.core/get value :default)
+  (cond (contains? value profile) (get value profile)
+        (contains? value :default) (get value :default)
         :otherwise nil))
 
 (defmethod reader 'hostname
@@ -53,8 +53,12 @@
      (get value :default))))
 
 (defmethod reader 'include
-  [opts tag value]
-  (read-config value opts))
+  [{:keys [resolver source] :as opts} tag value]
+  (read-config
+    (if (map? resolver)
+      (get resolver value)
+      (resolver source value))
+    opts))
 
 (defmethod reader 'join
   [opts tag value]
@@ -71,41 +75,28 @@
              m))]
     (get-in-conf config)))
 
-(defn- resolve-file-path
-  [r opts]
-  (let [t (type r)]
-    (cond (= t java.net.URL) ;; io.resource is a java.net.URL
-          (recur (.getFile r) opts)
+(defn relative-resolver [source include]
+  (io/file (-> source io/file .getParent) include))
 
-          (= t java.io.StringReader)
-          {:file r
-           :parent-path ""}
+(defn resource-resolver [_ include]
+  (io/resource include))
 
-          :else ;; asuming string representing a file path
-          (let [ior (io/file r)
-                fp (if (.isAbsolute ior)
-                     (.getPath ior)
-                     (str (:relative-path opts) (.getPath ior)))
-                iof (io/file fp)]
-            (if (.exists iof)
-              {:file fp
-               :parent-path (str (.getParent iof) "/")}
-              {:aero/warning (format "Configuration file does not exist: %s" fp)})))))
+(defn root-resolver [_ include]
+  include)
+
+(def default-opts
+  {:profile  :default
+   :resolver relative-resolver})
 
 (defn read-config
-  "Optional second argument is a map. Keys are :profile, indicating the
-  profile for use with #cond"
-  ([r opts]
-   (let [fp (resolve-file-path r opts)
-         config
-         (if (:warning fp)
-           fp
-           (with-open [pr (java.io.PushbackReader. (io/reader (:file fp)))]
-             (edn/read
-              {:eof nil
-               :default (partial reader (merge {:profile :default
-                                                :relative-path (:parent-path fp)}
-                                               opts))}
-              pr)))]
+  "Optional second argument is a map that can include the following keys:
+  :profile - indicates the profile to use for #profile extension
+  :user - manually set the user for the #user extension
+  :resolver - a function or map used to resolve includes."
+  ([source given-opts]
+   (let [opts (merge default-opts given-opts {:source source})
+         tag-fn (partial reader opts)
+         config (with-open [pr (-> source io/reader java.io.PushbackReader.)]
+                  (edn/read {:eof nil :default tag-fn} pr))]
      (get-in-ref config)))
-  ([r] (read-config r {})))
+  ([source] (read-config source {})))
