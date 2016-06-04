@@ -12,9 +12,7 @@ A small library for explicit, intentful configuration.
 
 Add the following dependency to your `project.clj` file
 
-```clojure
-[aero "1.0.0-beta2"]
-```
+[![Clojars Project](http://clojars.org/aero/latest-version.svg)](http://clojars.org/aero)
 
 [![Build Status](https://travis-ci.org/juxt/aero.png)](https://travis-ci.org/juxt/aero)
 
