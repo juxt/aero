@@ -76,7 +76,13 @@
     (get-in-conf config)))
 
 (defn relative-resolver [source include]
-  (io/file (-> source io/file .getParent) include))
+  (let [fl
+        (if (.isAbsolute (io/file include))
+          (io/file include)
+          (io/file (-> source io/file .getParent) include))]
+    (if (.exists fl)
+      fl
+      (java.io.StringReader. (pr-str {:missing-include include})))))
 
 (defn resource-resolver [_ include]
   (io/resource include))
