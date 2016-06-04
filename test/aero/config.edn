@@ -8,6 +8,4 @@
  :test-nested ^:ref [:test]
  :port #profile {:dev 8000
                  :prod 80}
- :old-port #cond {:dev 9000
-                  :prod 90}
  :dummy #or [#env "DUMMY" "dummy"]}
