@@ -172,14 +172,14 @@ config file it's being included from. (this won't work for jars)
 You can provide your own custom resolver to replace the default behaviour or use one that
 aero provides (`resource-resolver`, `root-resolver`). For example
 
-```
+```clojure
 (require '[aero.core :refer (read-config resource-resolver)])
 (read-config "config.edn" {:resolver resource-resolver})
 ```
 
 You can also provide a map as a resolver. For example
 
-```
+```clojure
 (read-config "config.edn" {:resolver {"webserver.edn" "resources/webserver/config.edn"}})
 ```
 

@@ -80,14 +80,17 @@
     (is (= "dummy" (:dummy config)))))
 
 (deftest resolver-tests
-  (is (= {:hello "world"}
-         (read-config "resources/test-rel.edn")
-         (read-config "resources/test-root.edn" {:resolver root-resolver})
-         (read-config (io/resource "test-res.edn") {:resolver resource-resolver})
-         (read-config "resources/test-res.edn"
-                      {:resolver
-                       {"sub/test-res.edn" "resources/sub/test-res.edn"
-                        "hello.edn"        "resources/hello.edn"}}))))
+  (let [source (io/resource "aero/includes.edn")]
+    (is (read-config source {:profile :relative}))
+    (is (read-config source {:profile :relative-abs}))
+    (is (read-config source {:profile :resource :resolver resource-resolver}))
+    (is (read-config source {:profile :file :resolver root-resolver}))
+    (is (read-config (-> source slurp java.io.StringReader.)
+                     {:profile :relative-abs}))
+    (is (read-config source {:profile  :map
+                             :resolver {:sub-includes (io/resource "aero/sub/includes.edn")
+                                        :valid-file   (io/resource "aero/valid.edn")}}))
+    (is (:missing-include (read-config source {:profile :file-does-not-exist})))))
 
 (deftest dangling-ref-test
   (is
