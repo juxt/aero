@@ -50,6 +50,16 @@
     (is (= (format "Terminal is %s" "smart")
            (:smart-term config)))))
 
+(deftest prop-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= "dummy" (:triple-or config)))
+    (is (nil? (:prop config))))
+  (System/setProperty "DUMMY" "ABC123")
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= "ABC123" (:triple-or config)))
+    (is (= "ABC123" (:prop config))))
+  (System/clearProperty "DUMMY"))
+
 (deftest format-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= (format "My favorite flavor is %s %s" (System/getenv "TERM") :chocolate)

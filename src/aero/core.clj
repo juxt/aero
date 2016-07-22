@@ -20,6 +20,10 @@
   [opts tag value]
   (System/getenv (str value)))
 
+(defmethod reader 'prop
+  [opts tag value]
+  (System/getProperty (str value)))
+
 (defmethod reader 'or
   [opts tag value]
   (first (filter some? value)))
