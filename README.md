@@ -152,6 +152,16 @@ can specify multiple hostnames in a set.
                     :default 8082}}}
 ```
 
+### long, double
+
+Use to parse a `String` value into a `Long` or `Double`
+
+``` clojure
+{:webserver
+  {:port #long #or [#env PORT 8080]
+   :factor #double #env FACTOR}}
+```
+
 ### user
 
 `#user` is like `#hostname`, but switches on the user.
