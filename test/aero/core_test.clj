@@ -60,6 +60,17 @@
     (is (= "ABC123" (:prop config))))
   (System/clearProperty "DUMMY"))
 
+(deftest numeric-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= 1234 (:long config)))
+    (is (= 4567.8 (:double config))))
+  (System/setProperty "FOO" "123")
+  (let [config (read-config "test/aero/long_prop.edn")]
+    (is (= 123 (:long-prop config))))
+  (System/clearProperty "FOO"))
+
+
+
 (deftest format-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= (format "My favorite flavor is %s %s" (System/getenv "TERM") :chocolate)

@@ -28,6 +28,14 @@
   [opts tag value]
   (first (filter some? value)))
 
+(defmethod reader 'long
+  [opts tag value]
+  (Long/parseLong (str value)))
+
+(defmethod reader 'double
+  [opts tag value]
+  (Double/parseDouble (str value)))
+
 (defmethod reader 'profile
   [{:keys [profile]} tag value]
   (cond (contains? value profile) (get value profile)
