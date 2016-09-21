@@ -224,6 +224,20 @@ to `"datomic:dynamo://dynamodb"`
 
 References are recursive. They can be used in `#include` files.
 
+## Deferreds
+
+Sometimes you may not want your tag literal to be run during the EDN load, but only after the tree has fully loaded.
+
+For example, you may have a :dev profile and a :prod profile. The :prod profile may require accessing an enterprise configuration store or key management service. You don't want that processing as part of the load, because it will also happen for :dev profiles.
+
+In this case, you can return your tag literal's computation as a deferred value. For example:
+
+```
+(defmethod aero.core/reader 'aws-kms-decrypt
+  [_ tag value]
+  (aero/deferred (kms-decrypt-str value)))
+```
+
 ## Recommended usage patterns, tips and advice
 
 ### Hide passwords in local private files

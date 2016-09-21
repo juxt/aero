@@ -12,4 +12,6 @@
  :double #double "4567.8"
  :dummy #or [#env "DUMMY" "dummy"]
  :triple-or #or [#env "DUMMY" #prop "DUMMY" "dummy"]
- :prop #prop "DUMMY"}
+ :prop #prop "DUMMY"
+ :network-call #expensive-network-call 7
+ }

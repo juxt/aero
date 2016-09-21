@@ -106,6 +106,14 @@
   {:profile  :default
    :resolver relative-resolver})
 
+(defrecord Deferred [delegate])
+
+(defmacro deferred [& expr]
+  `(->Deferred (delay ~@expr)))
+
+(defn realize-deferreds [config]
+  (postwalk (fn [x] (if (instance? Deferred x) @(:delegate x) x)) config))
+
 (defn read-config
   "Optional second argument is a map that can include the following keys:
   :profile - indicates the profile to use for #profile extension
@@ -116,5 +124,5 @@
          tag-fn (partial reader opts)
          config (with-open [pr (-> source io/reader java.io.PushbackReader.)]
                   (edn/read {:eof nil :default tag-fn} pr))]
-     (get-in-ref config)))
+     (-> config (get-in-ref) (realize-deferreds))))
   ([source] (read-config source {})))

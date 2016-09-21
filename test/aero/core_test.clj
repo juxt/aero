@@ -5,7 +5,12 @@
             [clojure
              [edn :as edn]
              [test :refer :all]]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io])
+  (:import [aero.core Deferred]))
+
+(defmethod aero.core/reader 'expensive-network-call
+  [_ tag value]
+  (deferred (inc value)))
 
 (deftest basic-test
   (let [config (read-config "test/aero/config.edn")]
@@ -126,3 +131,14 @@
                              :gardner {:favorite-color ^:ref [:color]}
                              :karl ^:ref [:gardner]
                              :color :blue})))))))
+
+
+(deftest deferred-test
+  (is
+   (instance? Deferred (deferred (+ 2 2))))
+  ;; The basic idea here is to ensure that the #expensive-network-call
+  ;; tag literal is called (because it increments its value). This
+  ;; also tests the Deferred functionality as a consequence.
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= (get-in config [:network-call])
+           8))))
