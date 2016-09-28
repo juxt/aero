@@ -74,7 +74,13 @@
     (is (= 123 (:long-prop config))))
   (System/clearProperty "FOO"))
 
-
+(deftest boolean-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= true (:True-boolean config)))
+    (is (= true (:true-boolean config)))
+    (is (= false (:trivial-false-boolean config)))
+    (is (= false (:nil-false-boolean config)))
+    (is (= false (:false-boolean config)))))
 
 (deftest format-test
   (let [config (read-config "test/aero/config.edn")]
