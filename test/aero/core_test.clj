@@ -116,7 +116,7 @@
     (is (read-config source {:profile  :map
                              :resolver {:sub-includes (io/resource "aero/sub/includes.edn")
                                         :valid-file   (io/resource "aero/valid.edn")}}))
-    (is (:missing-include (read-config source {:profile :file-does-not-exist})))))
+    (is (:aero/missing-include (read-config source {:profile :file-does-not-exist})))))
 
 (deftest dangling-ref-test
   (is
