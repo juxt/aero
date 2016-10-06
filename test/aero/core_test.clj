@@ -74,7 +74,11 @@
     (is (= 123 (:long-prop config))))
   (System/clearProperty "FOO"))
 
-
+(deftest keyword-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= :foo/bar (:keyword config)))
+    (is (= :foo/bar (:already-a-keyword config)))
+    (is (= :abc (:env-keyword config)))))
 
 (deftest format-test
   (let [config (read-config "test/aero/config.edn")]

@@ -36,6 +36,12 @@
   [opts tag value]
   (Double/parseDouble (str value)))
 
+(defmethod reader 'keyword
+  [opts tag value]
+  (if (keyword? value)
+    value
+    (keyword (str value))))
+
 (defmethod reader 'profile
   [{:keys [profile]} tag value]
   (cond (contains? value profile) (get value profile)
