@@ -152,12 +152,13 @@ can specify multiple hostnames in a set.
                     :default 8082}}}
 ```
 
-### long, double
+### long, double, boolean
 
-Use to parse a `String` value into a `Long` or `Double`
+Use to parse a `String` value into a `Long`, `Double`, or `Boolean`.
 
 ``` clojure
-{:webserver
+{:debug #boolean #or [#env DEBUG "true"]
+ :webserver
   {:port #long #or [#env PORT 8080]
    :factor #double #env FACTOR}}
 ```

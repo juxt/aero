@@ -8,6 +8,11 @@
  :test-nested ^:ref [:test]
  :port #profile {:dev 8000
                  :prod 80}
+ :True-boolean #boolean "True"
+ :true-boolean #boolean "true"
+ :false-boolean #boolean "false"
+ :trivial-false-boolean #boolean "OTHER"
+ :nil-false-boolean #boolean ""
  :long #long "1234"
  :double #double "4567.8"
  :dummy #or [#env "DUMMY" "dummy"]
