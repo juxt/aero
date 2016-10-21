@@ -106,9 +106,23 @@
 (defn root-resolver [_ include]
   include)
 
+(defn adaptive-resolver [source include]
+  (let [include (or (io/resource include)
+                    include)
+        fl (if (string? include)
+             (if (.isAbsolute (io/file include))
+               (io/file include)
+               (io/file (-> source io/file .getParent) include))
+             include)]
+    (if (string? include)
+      (if (.exists fl)
+        fl
+        (StringReader. (pr-str {:missing-include include})))
+      include)))
+
 (def default-opts
   {:profile  :default
-   :resolver relative-resolver})
+   :resolver adaptive-resolver})
 
 (defrecord Deferred [delegate])
 
