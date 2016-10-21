@@ -99,7 +99,7 @@
           (io/file (-> source io/file .getParent) include))]
     (if (.exists fl)
       fl
-      (java.io.StringReader. (pr-str {:missing-include include})))))
+      (StringReader. (pr-str {:missing-include include})))))
 
 (defn resource-resolver [_ include]
   (io/resource include))
@@ -109,16 +109,9 @@
 
 (defn adaptive-resolver [source include]
   (let [include (or (io/resource include)
-                    include)
-        fl (if (string? include)
-             (if (.isAbsolute (io/file include))
-               (io/file include)
-               (io/file (-> source io/file .getParent) include))
-             include)]
+                    include)]
     (if (string? include)
-      (if (.exists fl)
-        fl
-        (StringReader. (pr-str {:missing-include include})))
+      (relative-resolver source include)
       include)))
 
 (def default-opts
