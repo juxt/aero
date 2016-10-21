@@ -6,7 +6,8 @@
    [clojure.string :refer [trim]]
    [clojure.walk :refer [walk postwalk]]
    [clojure.java.io :as io]
-   [clojure.java.shell :as sh]))
+   [clojure.java.shell :as sh])
+  (:import (java.io StringReader)))
 
 (declare read-config)
 
