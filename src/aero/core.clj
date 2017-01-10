@@ -6,7 +6,8 @@
    [clojure.string :refer [trim]]
    [clojure.walk :refer [walk postwalk]]
    [clojure.java.io :as io]
-   [clojure.java.shell :as sh]))
+   [clojure.java.shell :as sh])
+  (:import (java.io StringReader)))
 
 (declare read-config)
 
@@ -98,7 +99,7 @@
           (io/file (-> source io/file .getParent) include))]
     (if (.exists fl)
       fl
-      (java.io.StringReader. (pr-str {:aero/missing-include include})))))
+      (StringReader. (pr-str {:aero/missing-include include})))))
 
 (defn resource-resolver [_ include]
   (io/resource include))
@@ -106,9 +107,16 @@
 (defn root-resolver [_ include]
   include)
 
+(defn adaptive-resolver [source include]
+  (let [include (or (io/resource include)
+                    include)]
+    (if (string? include)
+      (relative-resolver source include)
+      include)))
+
 (def default-opts
   {:profile  :default
-   :resolver relative-resolver})
+   :resolver adaptive-resolver})
 
 (defrecord Deferred [delegate])
 
