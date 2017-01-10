@@ -283,7 +283,7 @@ Aero has frictionless integration with [Plumatic Schema](https://github.com/plum
 ### Using Aero with components
 
 If you are using Stuart Sierra's
-[component[(https://github.com/stuartsierra/component) library, here's how you might integrate Aero.
+[component](https://github.com/stuartsierra/component) library, here's how you might integrate Aero.
 
 ```clojure
 (ns myproj.server

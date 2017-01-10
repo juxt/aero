@@ -99,7 +99,7 @@
           (io/file (-> source io/file .getParent) include))]
     (if (.exists fl)
       fl
-      (StringReader. (pr-str {:missing-include include})))))
+      (StringReader. (pr-str {:aero/missing-include include})))))
 
 (defn resource-resolver [_ include]
   (io/resource include))
