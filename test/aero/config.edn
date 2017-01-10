@@ -15,6 +15,9 @@
  :nil-false-boolean #boolean ""
  :long #long "1234"
  :double #double "4567.8"
+ :keyword #keyword "foo/bar"
+ :already-a-keyword #keyword :foo/bar
+ :env-keyword #keyword #or [#env KEYWORD "abc"]
  :dummy #or [#env "DUMMY" "dummy"]
  :triple-or #or [#env "DUMMY" #prop "DUMMY" "dummy"]
  :prop #prop "DUMMY"
