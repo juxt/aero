@@ -80,6 +80,14 @@
     (is (= :foo/bar (:already-a-keyword config)))
     (is (= :abc (:env-keyword config)))))
 
+(deftest boolean-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= true (:True-boolean config)))
+    (is (= true (:true-boolean config)))
+    (is (= false (:trivial-false-boolean config)))
+    (is (= false (:nil-false-boolean config)))
+    (is (= false (:false-boolean config)))))
+
 (deftest format-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= (format "My favorite flavor is %s %s" (System/getenv "TERM") :chocolate)
@@ -120,7 +128,7 @@
     (is (read-config source {:profile  :map
                              :resolver {:sub-includes (io/resource "aero/sub/includes.edn")
                                         :valid-file   (io/resource "aero/valid.edn")}}))
-    (is (:missing-include (read-config source {:profile :file-does-not-exist})))))
+    (is (:aero/missing-include (read-config source {:profile :file-does-not-exist})))))
 
 (deftest dangling-ref-test
   (is

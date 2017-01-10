@@ -152,12 +152,13 @@ can specify multiple hostnames in a set.
                     :default 8082}}}
 ```
 
-### long, double, keyword
+### long, double, keyword, boolean
 
-Use to parse a `String` value into a `Long`, `Double` or keyword
+Use to parse a `String` value into a `Long`, `Double`, keyword or boolean.
 
 ``` clojure
-{:webserver
+{:debug #boolean #or [#env DEBUG "true"]
+ :webserver
   {:port #long #or [#env PORT 8080]
    :factor #double #env FACTOR
    :mode #keyword #env MODE}}
@@ -283,7 +284,7 @@ Aero has frictionless integration with [Plumatic Schema](https://github.com/plum
 ### Using Aero with components
 
 If you are using Stuart Sierra's
-[component[(https://github.com/stuartsierra/component) library, here's how you might integrate Aero.
+[component](https://github.com/stuartsierra/component) library, here's how you might integrate Aero.
 
 ```clojure
 (ns myproj.server
