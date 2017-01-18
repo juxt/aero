@@ -21,6 +21,12 @@
   [opts tag value]
   (System/getenv (str value)))
 
+(defmethod reader 'envf
+  [opts tag value]
+  (let [[fmt & args] value]
+    (apply format fmt
+           (map #(System/getenv (str %)) args))))
+
 (defmethod reader 'prop
   [opts tag value]
   (System/getProperty (str value)))

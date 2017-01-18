@@ -48,12 +48,17 @@
   (let [config (read-config "test/aero/config.edn")]
     (is (= :chocolate (:flavor config)))))
 
-(deftest envf-test
+(deftest join-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= (format "Terminal is %s" (System/getenv "TERM"))
            (:dumb-term config)))
     (is (= (format "Terminal is %s" "smart")
            (:smart-term config)))))
+
+(deftest envf-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= (format "Terminal is %s" (System/getenv "TERM"))
+           (:dumb-term-envf config)))))
 
 (deftest prop-test
   (let [config (read-config "test/aero/config.edn")]
