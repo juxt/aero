@@ -93,6 +93,14 @@ Use `#env` to reference an environment variable.
 
 It is considered bad practice to use environment variables for passwords and other confidential information. This is because it is very easy for anyone to read a process's environment (e.g. via `ps -ef`). Environment variables are also commonly dumped out in a debugging sessions. Instead you should use `#include` - see [here](#hide-passwords-in-local-private-files).
 
+### envf
+
+Use `#envf` to insert environment variables into a formatted string.
+
+```clojure
+{:database #envf ["protocol://%s:%s" DATABASE_HOST DATABASE_NAME]}
+```
+
 ### or
 
 Use `#or` when you want to provide a list of possibilities, perhaps with a default and the end.
