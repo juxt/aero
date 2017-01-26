@@ -130,12 +130,21 @@
   {:profile  :default
    :resolver adaptive-resolver})
 
+;; The rationale for deferreds is to realise some values after the
+;; config has been read. This allows certain expensive operations to
+;; be performed only after #profile has had a chance to filter out all
+;; other environments. For example, a :prod profile my do some
+;; expensive decryption of secrets (which may not be cheap to run for
+;; all environments which don't need them, and probably won't be
+;; possible to decrypt, therefore you want to defer until needed).
+
 (defrecord Deferred [delegate])
 
 (defmacro deferred [& expr]
   `(->Deferred (delay ~@expr)))
 
-(defn realize-deferreds [config]
+(defn- realize-deferreds
+  [config]
   (postwalk (fn [x] (if (instance? Deferred x) @(:delegate x) x)) config))
 
 (defn read-config
