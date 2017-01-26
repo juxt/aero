@@ -155,7 +155,12 @@
   ([source given-opts]
    (let [opts (merge default-opts given-opts {:source source})
          tag-fn (partial reader opts)
-         config (with-open [pr (-> source io/reader java.io.PushbackReader.)]
-                  (edn/read {:eof nil :default tag-fn} pr))]
+         config (with-open [pr (-> source io/reader clojure.lang.LineNumberingPushbackReader.)]
+                  (try
+                    (edn/read {:eof nil :default tag-fn} pr)
+                    (catch Exception e
+                      (let [line (.getLineNumber pr)]
+                        (throw (ex-info (format "Config error on line %s" line) {:line line}  e)))
+                      )))]
      (-> config (get-in-ref) (realize-deferreds))))
   ([source] (read-config source {})))
