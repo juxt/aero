@@ -203,6 +203,14 @@ You can also provide a map as a resolver. For example
 (read-config "config.edn" {:resolver {"webserver.edn" "resources/webserver/config.edn"}})
 ```
 
+### merge
+
+Merge multiple maps together
+
+```clojure
+#merge [{:foo :bar} {:foo :zip}]
+```
+
 ### Define your own
 
 Aero supports user-defined tag literals. Just extend the `reader` multimethod.

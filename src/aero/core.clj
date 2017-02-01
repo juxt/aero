@@ -93,6 +93,10 @@
   [opts tag value]
   (apply str value))
 
+(defmethod aero.core/reader 'merge
+  [opts tag values]
+  (apply merge values))
+
 (defn- get-in-ref
   [config]
   (letfn [(get-in-conf [m]
