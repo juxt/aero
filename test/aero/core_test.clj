@@ -55,6 +55,14 @@
     (is (= (format "Terminal is %s" "smart")
            (:smart-term config)))))
 
+(deftest test-read
+  (let [x [:foo :bar :baz]
+        _ (System/setProperty "DUMMY_READ" (str x))
+        config (read-config "test/aero/config.edn")]
+    (is (= x (:test-read-str config)))
+    (is (= x (:test-read-env config)))
+    (System/clearProperty "DUMMY_READ")))
+
 (deftest envf-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= (format "Terminal is %s" (System/getenv "TERM"))

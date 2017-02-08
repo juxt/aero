@@ -93,6 +93,10 @@
   [opts tag value]
   (apply str value))
 
+(defmethod reader 'read-edn
+  [opts tag value]
+  (some-> value str edn/read-string))
+
 (defn- get-in-ref
   [config]
   (letfn [(get-in-conf [m]
