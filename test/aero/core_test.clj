@@ -157,7 +157,6 @@
                              :karl ^:ref [:gardner]
                              :color :blue})))))))
 
-
 (deftest deferred-test
   (is
    (instance? Deferred (deferred (+ 2 2))))
@@ -167,3 +166,7 @@
   (let [config (read-config "test/aero/config.edn")]
     (is (= (get-in config [:network-call])
            8))))
+
+(deftest default-reader-combo
+  (let [config (read-config "test/aero/default-reader.edn")]
+    (is (= #inst "2013-07-09T18:05:53.231-00:00" (:date config)))))
