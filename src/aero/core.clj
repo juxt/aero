@@ -15,7 +15,14 @@
 
 (defmethod reader :default
   [_ tag value]
-  (throw (ex-info (format "No reader for tag %s" tag) {:tag tag :value value})))
+  (cond
+    ;; Given tagification, we now must check data-readers
+    (contains? *data-readers* tag)
+    ((get *data-readers* tag) value)
+    (contains? default-data-readers tag)
+    ((get default-data-readers tag) value)
+    :else
+    (throw (ex-info (format "No reader for tag %s" tag) {:tag tag :value value}))))
 
 (defmethod reader 'env
   [opts tag value]
@@ -155,6 +162,48 @@
   [config]
   (postwalk (fn [x] (if (instance? Deferred x) @(:delegate x) x)) config))
 
+(defrecord TagWrapper
+  [tag value])
+(defn- tag-wrapper
+  "Call from :default of clojure.edn to wrap all tags it encounters & cannot handle itself.
+   TODO: Anything special needed to support a mirror of dynamic var related to *tags*?"
+  [tag value]
+  (->TagWrapper tag value))
+(defn- tag-wrapper?
+  [x]
+  (= (type x) TagWrapper))
+(defn- tag-wrapper-of?
+  [x tag]
+  (and (tag-wrapper? x)
+       (= (:tag x) tag)))
+(defn- tag-wrapper-of-ref?
+  [x]
+  (tag-wrapper-of? x 'ref))
+(defn- resolve-tag-wrappers
+  [tagged-config tag-fn]
+  (postwalk
+    (fn [x]
+      (if (tag-wrapper? x)
+        (tag-fn (:tag x) (:value x))
+        x))
+    tagged-config))
+(defn read-config-into-tag-wrapper
+  [pr]
+  (try
+    (edn/read
+      {:eof nil
+       ;; Make a wrapper of all known readers, this permits mixing of
+       ;; post-processed tags with declared data readers
+       :readers (into
+                  {}
+                  (map (fn [[k v]] [k #(tag-wrapper k %)])
+                       (merge default-data-readers *data-readers*)))
+       :default tag-wrapper}
+      pr)
+    (catch Exception e
+      (let [line (.getLineNumber pr)]
+        (throw (ex-info (format "Config error on line %s" line) {:line line} e))))))
+
 (defn read-config
   "Optional second argument is a map that can include the following keys:
   :profile - indicates the profile to use for #profile extension
@@ -163,12 +212,10 @@
   ([source given-opts]
    (let [opts (merge default-opts given-opts {:source source})
          tag-fn (partial reader opts)
-         config (with-open [pr (-> source io/reader clojure.lang.LineNumberingPushbackReader.)]
-                  (try
-                    (edn/read {:eof nil :default tag-fn} pr)
-                    (catch Exception e
-                      (let [line (.getLineNumber pr)]
-                        (throw (ex-info (format "Config error on line %s" line) {:line line}  e)))
-                      )))]
-     (-> config (get-in-ref) (realize-deferreds))))
+         wrapped-config (with-open [pr (-> source io/reader clojure.lang.LineNumberingPushbackReader.)]
+                          (read-config-into-tag-wrapper pr))]
+     (-> wrapped-config
+         (get-in-ref)
+         (resolve-tag-wrappers tag-fn)
+         (realize-deferreds))))
   ([source] (read-config source {})))
