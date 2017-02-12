@@ -25,4 +25,9 @@
  :network-call #expensive-network-call 7
  :test-read-str #read-edn "[:foo :bar :baz]"
  :test-read-env #read-edn #prop DUMMY_READ
- }
+
+ :referencing-network-call ^:ref [:network-call]
+
+ :key-part :b
+ :refer-me {:a {:b {1234 :sentinel}}}
+ :complex-ref #ref [:refer-me :a #ref [:key-part] #ref [:long]]}
