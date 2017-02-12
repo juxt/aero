@@ -2,11 +2,12 @@
 
 (ns aero.core
   (:require
-   [clojure.edn :as edn]
-   [clojure.string :refer [trim]]
-   [clojure.walk :refer [walk postwalk]]
-   [clojure.java.io :as io]
-   [clojure.java.shell :as sh])
+    [clojure.edn :as edn]
+    [clojure.string :refer [trim]]
+    [clojure.walk :refer [walk postwalk]]
+    [clojure.java.io :as io]
+    [clojure.java.shell :as sh]
+    [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep])
   (:import (java.io StringReader)))
 
 (declare read-config)
@@ -179,6 +180,7 @@
 (defn- tag-wrapper-of-ref?
   [x]
   (tag-wrapper-of? x 'ref))
+
 (defn- resolve-tag-wrappers
   [tagged-config tag-fn]
   (postwalk
@@ -187,23 +189,116 @@
         (tag-fn (:tag x) (:value x))
         x))
     tagged-config))
-(defn read-config-into-tag-wrapper
-  [pr]
-  (try
-    (edn/read
-      {:eof nil
-       ;; Make a wrapper of all known readers, this permits mixing of
-       ;; post-processed tags with declared data readers
-       :readers (into
-                  {}
-                  (map (fn [[k v]] [k #(tag-wrapper k %)])
-                       (merge default-data-readers *data-readers*)))
-       :default tag-wrapper}
-      pr)
-    (catch Exception e
-      (let [line (.getLineNumber pr)]
-        (throw (ex-info (format "Config error on line %s" line) {:line line} e))))))
+(defn- ref-meta-to-tag-wrapper
+  [config]
+  (letfn [(get-in-conf [m]
+            (postwalk
+              (fn [v]
+                (if-not (contains? (meta v) :ref)
+                  v
+                  (tag-wrapper 'ref v)))
+              m))]
+    (get-in-conf config)))
 
+(defn pathify
+  "Return a list of tuples. Each tuple will be of a key-path (similar to what get-in takes) and the value at that point.
+  NOTE: get-in will not necessarily work on the data structure as get-in doesn't work on lists.
+  NOTE: Has a special case for tags (could this be removed?) (tag-kvs)
+  NOTE: May have a limit due to recursion not being in the tail position."
+  ([f x] (pathify f (f) x))
+  ([f pk x]
+   (if-some [kvs (cond
+                   (map? x)
+                   x
+                   (sequential? x)
+                   (map-indexed vector x))]
+     (conj
+       (mapcat
+         (fn [[k v]]
+           (pathify f (f pk k) v))
+         kvs)
+       [pk x])
+     [[pk x]])))
+(defn shorter-variations
+  "Given a sequence '(1 2 3) return a sequence of all shorter
+  possible sequences: '((1 2) (1))"
+  [xs]
+  (loop [r '()
+         ys (butlast (seq xs))]
+    (if (seq ys)
+      (recur (conj r ys)
+             (butlast ys))
+      r)))
+(defn ref-dependency
+  [ref*]
+  (:value ref*))
+(defn ref-dependencies
+  "Recursively checks a ref for nested dependencies"
+  [ref*]
+  (let [nested-deps (sequence
+                      (comp (filter tag-wrapper-of-ref?)
+                            (map :value))
+                      (:value ref*))]
+    (concat
+      (when-some [r (ref-dependency ref*)] [r])
+      (when (seq nested-deps)
+        (concat nested-deps
+                (->> nested-deps
+                     (mapcat ref-dependencies)))))))
+(defn config->ref-graph
+  [config]
+  (reduce
+    (fn [graph [k v]]
+      (as-> graph %
+        (reduce (fn [acc sk] (dep/depend acc sk k)) % (shorter-variations k))
+        (reduce (fn [acc d] (dep/depend acc k d)) % (ref-dependencies v))))
+    (dep/graph)
+    (filter
+      (comp tag-wrapper-of-ref? second)
+      (pathify conj [] config))))
+(defn resolve-refs
+  "Resolves refs & any necessary tags in order to do it's job"
+  [config resolve-fn]
+  (reduce
+    (fn [acc ks]
+      (let [resolved-ks (map
+                          (fn [x]
+                            ;; if there's a sub-ref here, it should already be
+                            ;; a value due to recursive deps being resolved for
+                            ;; us
+                            (if (tag-wrapper-of-ref? x)
+                              (get-in acc (ref-dependency x))
+                              x))
+                          ks)
+            b (get-in acc resolved-ks)]
+        (cond
+          (tag-wrapper-of-ref? b)
+          (assoc-in acc resolved-ks (get-in acc (ref-dependency b)))
+          (tag-wrapper? b)
+          (assoc-in acc resolved-ks (resolve-fn (:tag b) (:value b)))
+          :else
+          acc)))
+    config
+    (dep/topo-sort (config->ref-graph config))))
+
+(defn read-config-into-tag-wrapper
+  [source]
+  (with-open [pr (-> source io/reader clojure.lang.LineNumberingPushbackReader.)]
+    (try
+      (ref-meta-to-tag-wrapper
+        (edn/read
+          {:eof nil
+           ;; Make a wrapper of all known readers, this permits mixing of
+           ;; post-processed tags with declared data readers
+           :readers (into
+                      {}
+                      (map (fn [[k v]] [k #(tag-wrapper k %)])
+                           (merge default-data-readers *data-readers*)))
+           :default tag-wrapper}
+          pr))
+      (catch Exception e
+        (let [line (.getLineNumber pr)]
+          (throw (ex-info (format "Config error on line %s" line) {:line line} e)))))))
 (defn read-config
   "Optional second argument is a map that can include the following keys:
   :profile - indicates the profile to use for #profile extension
@@ -212,10 +307,22 @@
   ([source given-opts]
    (let [opts (merge default-opts given-opts {:source source})
          tag-fn (partial reader opts)
-         wrapped-config (with-open [pr (-> source io/reader clojure.lang.LineNumberingPushbackReader.)]
-                          (read-config-into-tag-wrapper pr))]
+         wrapped-config (read-config-into-tag-wrapper source)]
      (-> wrapped-config
-         (get-in-ref)
+         (resolve-refs tag-fn)
          (resolve-tag-wrappers tag-fn)
          (realize-deferreds))))
+  ([source] (read-config source {})))
+
+(defn my-read-config
+  "Optional second argument is a map that can include the following keys:
+  :profile - indicates the profile to use for #profile extension
+  :user - manually set the user for the #user extension
+  :resolver - a function or map used to resolve includes."
+  ([source given-opts]
+   (let [opts (merge default-opts given-opts {:source source})
+         tag-fn (partial reader opts)
+         wrapped-config (read-config-into-tag-wrapper source)]
+     #_(pathify conj [] wrapped-config)
+     wrapped-config))
   ([source] (read-config source {})))

@@ -8,9 +8,13 @@
             [clojure.java.io :as io])
   (:import [aero.core Deferred]))
 
+(def network-call-count (atom 0))
+
 (defmethod aero.core/reader 'expensive-network-call
   [_ tag value]
-  (deferred (inc value)))
+  (deferred
+    (swap! network-call-count inc)
+    (inc value)))
 
 (deftest basic-test
   (let [config (read-config "test/aero/config.edn")]
@@ -111,6 +115,11 @@
     (is (= (get-in config [:greeting])
            (:test config)))))
 
+(deftest complex-ref-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= (get-in config [:refer-me :a :b 1234])
+           (:complex-ref config)))))
+
 (deftest remote-file-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= (get-in config [:remote :greeting])
@@ -170,3 +179,10 @@
 (deftest default-reader-combo
   (let [config (read-config "test/aero/default-reader.edn")]
     (is (= #inst "2013-07-09T18:05:53.231-00:00" (:date config)))))
+
+(deftest refs-call-once
+  ;; The purpose of this test is to defend against naïve copying of references
+  ;; instead of resolving it early
+  (let [before-call-count @network-call-count
+        config (read-config "test/aero/config.edn")]
+    (is (= (inc before-call-count) @network-call-count))))
