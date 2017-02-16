@@ -93,6 +93,10 @@
   [opts tag value]
   (apply str value))
 
+(defmethod reader 'read-edn
+  [opts tag value]
+  (some-> value str edn/read-string))
+
 (defmethod aero.core/reader 'merge
   [opts tag values]
   (apply merge values))
