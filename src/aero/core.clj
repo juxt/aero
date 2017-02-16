@@ -165,18 +165,22 @@
 
 (defrecord TagWrapper
   [tag value])
+
 (defn- tag-wrapper
   "Call from :default of clojure.edn to wrap all tags it encounters & cannot handle itself.
    TODO: Anything special needed to support a mirror of dynamic var related to *tags*?"
   [tag value]
   (->TagWrapper tag value))
+
 (defn- tag-wrapper?
   [x]
   (= (type x) TagWrapper))
+
 (defn- tag-wrapper-of?
   [x tag]
   (and (tag-wrapper? x)
        (= (:tag x) tag)))
+
 (defn- tag-wrapper-of-ref?
   [x]
   (tag-wrapper-of? x 'ref))
@@ -219,6 +223,7 @@
          kvs)
        [pk x])
      [[pk x]])))
+
 (defn shorter-variations
   "Given a sequence '(1 2 3) return a sequence of all shorter
   possible sequences: '((1 2) (1))"
@@ -229,9 +234,11 @@
       (recur (conj r ys)
              (butlast ys))
       r)))
+
 (defn ref-dependency
   [ref*]
   (:value ref*))
+
 (defn ref-dependencies
   "Recursively checks a ref for nested dependencies"
   [ref*]
@@ -245,6 +252,7 @@
         (concat nested-deps
                 (->> nested-deps
                      (mapcat ref-dependencies)))))))
+
 (defn config->ref-graph
   [config]
   (reduce
@@ -256,6 +264,7 @@
     (filter
       (comp tag-wrapper-of-ref? second)
       (pathify conj [] config))))
+
 (defn resolve-refs
   "Resolves refs & any necessary tags in order to do it's job"
   [config resolve-fn]
@@ -299,6 +308,7 @@
       (catch Exception e
         (let [line (.getLineNumber pr)]
           (throw (ex-info (format "Config error on line %s" line) {:line line} e)))))))
+
 (defn read-config
   "Optional second argument is a map that can include the following keys:
   :profile - indicates the profile to use for #profile extension
