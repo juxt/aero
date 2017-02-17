@@ -14,7 +14,7 @@ Add the following dependency to your `project.clj` file
 
 [![Clojars Project](http://clojars.org/aero/latest-version.svg)](http://clojars.org/aero)
 
-[![Build Status](https://travis-ci.org/juxt/aero.png)](https://travis-ci.org/juxt/aero)
+[![Build Status](https://circleci.com/gh/juxt/aero.svg?style=svg)](https://circleci.com/gh/juxt/aero)
 
 ## Status
 
