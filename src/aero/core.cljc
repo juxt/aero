@@ -1,16 +1,25 @@
-;; Copyright © 2015-2016, JUXT LTD.
+;; Copyright © 2015-2017, JUXT LTD.
 
 (ns aero.core
-  (:require
-    [clojure.edn :as edn]
-    [clojure.string :refer [trim]]
-    [clojure.walk :refer [walk postwalk]]
-    [clojure.java.io :as io]
-    [clojure.java.shell :as sh]
-    [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep])
-  (:import (java.io StringReader)))
+  #?(:clj (:require
+           [clojure.edn :as edn]
+           [clojure.string :refer [trim]]
+           [clojure.walk :refer [walk postwalk]]
+           [clojure.java.io :as io]
+           [clojure.java.shell :as sh]
+           [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]))
+  #?(:clj (:import (java.io StringReader)))
+  #?(:cljs (:require [cljs.tools.reader :as edn]
+                     [cljs.nodejs :as nodejs]
+                     [goog.string :as gstring]
+                     goog.string.format
+                     [clojure.walk :refer [walk postwalk]]
+                     [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]
+                     )))
 
 (declare read-config)
+
+#?(:cljs (def os (nodejs/require "os")))
 
 (defmulti reader (fn [opts tag value] tag))
 
@@ -18,26 +27,33 @@
   [_ tag value]
   (cond
     ;; Given tagification, we now must check data-readers
-    (contains? *data-readers* tag)
-    ((get *data-readers* tag) value)
-    (contains? default-data-readers tag)
-    ((get default-data-readers tag) value)
+    ;; TODO: Only Clojure for now, but also ClojureScript once *data-readers* are supported in lumo
+    (contains? #?(:clj *data-readers* :cljs edn/*data-readers*) tag)
+    ((get #?(:clj *data-readers* :cljs edn/*data-readers*) tag) value)
+    #?(:clj (contains? default-data-readers tag))
+    #?(:clj ((get default-data-readers tag) value))
     :else
-    (throw (ex-info (format "No reader for tag %s" tag) {:tag tag :value value}))))
+    (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))
+    ))
+
+(defn- env [s]
+  #?(:clj (System/getenv (str s)))
+  #?(:cljs (aget js/process.env s)))
 
 (defmethod reader 'env
   [opts tag value]
-  (System/getenv (str value)))
+  (env value))
 
 (defmethod reader 'envf
   [opts tag value]
   (let [[fmt & args] value]
-    (apply format fmt
-           (map #(System/getenv (str %)) args))))
+    (apply #?(:clj format :cljs gstring/format) fmt
+           (map #(env (str %)) args))))
 
 (defmethod reader 'prop
-  [opts tag value]
-  (System/getProperty (str value)))
+   [opts tag value]
+   #?(:clj (System/getProperty (str value))
+      :cljs nil))
 
 (defmethod reader 'or
   [opts tag value]
@@ -45,11 +61,13 @@
 
 (defmethod reader 'long
   [opts tag value]
-  (Long/parseLong (str value)))
+  #?(:clj (Long/parseLong (str value)))
+  #?(:cljs (js/parseInt (str value))))
 
 (defmethod reader 'double
   [opts tag value]
-  (Double/parseDouble (str value)))
+  #?(:clj (Double/parseDouble (str value)))
+  #?(:cljs (js/parseFloat (str value))))
 
 (defmethod reader 'keyword
   [opts tag value]
@@ -59,7 +77,8 @@
 
 (defmethod reader 'boolean
   [opts tag value]
-  (Boolean/parseBoolean (str value)))
+  #?(:clj (Boolean/parseBoolean (str value)))
+  #?(:cljs (= "true" (.toLowerCase (str value)))))
 
 (defmethod reader 'profile
   [{:keys [profile]} tag value]
@@ -69,7 +88,8 @@
 
 (defmethod reader 'hostname
   [{:keys [hostname]} tag value]
-  (let [hostn (or hostname (-> (sh/sh "hostname") :out trim))]
+  (let [hostn (or hostname #?(:clj (env "HOSTNAME")
+                              :cljs (os.hostname)))]
     (or
      (some (fn [[k v]]
              (when (or (= k hostn)
@@ -80,7 +100,7 @@
 
 (defmethod reader 'user
   [{:keys [user]} tag value]
-  (let [user (or user (-> (sh/sh "whoami") :out trim))]
+  (let [user (or user (env "USER"))]
     (or
      (some (fn [[k v]]
              (when (or (= k user)
@@ -120,31 +140,39 @@
              m))]
     (get-in-conf config)))
 
-(defn relative-resolver [source include]
-  (let [fl
-        (if (.isAbsolute (io/file include))
-          (io/file include)
-          (io/file (-> source io/file .getParent) include))]
-    (if (.exists fl)
-      fl
-      (StringReader. (pr-str {:aero/missing-include include})))))
+#?(:clj
+   (defn relative-resolver [source include]
+     (let [fl
+           (if (.isAbsolute (io/file include))
+             (io/file include)
+             (io/file (-> source io/file .getParent) include))]
+       (if (.exists fl)
+         fl
+         (StringReader. (pr-str {:aero/missing-include include}))))))
 
-(defn resource-resolver [_ include]
-  (io/resource include))
+#?(:clj
+   (defn resource-resolver [_ include]
+     (io/resource include)))
 
-(defn root-resolver [_ include]
-  include)
+#?(:clj
+   (defn root-resolver [_ include]
+     include))
 
-(defn adaptive-resolver [source include]
-  (let [include (or (io/resource include)
-                    include)]
-    (if (string? include)
-      (relative-resolver source include)
-      include)))
+#?(:clj
+   (defn adaptive-resolver [source include]
+     (let [include (or (io/resource include)
+                       include)]
+       (if (string? include)
+         (relative-resolver source include)
+         include))))
 
 (def default-opts
-  {:profile  :default
-   :resolver adaptive-resolver})
+  {:profile :default
+   :resolver #?(:clj adaptive-resolver
+                :cljs (fn [source include]
+                        (if (path.isAbsolute include)
+                          include
+                          (path.join source ".." include))))})
 
 ;; The rationale for deferreds is to realise some values after the
 ;; config has been read. This allows certain expensive operations to
@@ -157,7 +185,7 @@
 (defrecord Deferred [delegate])
 
 (defmacro deferred [& expr]
-  `(->Deferred (delay ~@expr)))
+   `(->Deferred (delay ~@expr)))
 
 (defn- realize-deferreds
   [config]
@@ -292,22 +320,36 @@
 
 (defn read-config-into-tag-wrapper
   [source]
-  (with-open [pr (-> source io/reader clojure.lang.LineNumberingPushbackReader.)]
-    (try
-      (ref-meta-to-tag-wrapper
-        (edn/read
-          {:eof nil
-           ;; Make a wrapper of all known readers, this permits mixing of
-           ;; post-processed tags with declared data readers
-           :readers (into
+  #?(:clj
+     (with-open [pr (-> source io/reader clojure.lang.LineNumberingPushbackReader.)]
+       (try
+         (ref-meta-to-tag-wrapper
+          (edn/read
+           {:eof nil
+            ;; Make a wrapper of all known readers, this permits mixing of
+            ;; post-processed tags with declared data readers
+            :readers (into
                       {}
                       (map (fn [[k v]] [k #(tag-wrapper k %)])
                            (merge default-data-readers *data-readers*)))
-           :default tag-wrapper}
-          pr))
-      (catch Exception e
-        (let [line (.getLineNumber pr)]
-          (throw (ex-info (format "Config error on line %s" line) {:line line} e)))))))
+            :default tag-wrapper}
+           pr))
+         (catch Exception e
+           (let [line (.getLineNumber pr)]
+             (throw (ex-info (#?(:clj format :cljs gstring/format) "Config error on line %s" line) {:line line} e))))))
+     :cljs
+     (binding [edn/*default-data-reader-fn* tag-wrapper
+               edn/*data-readers* (into {}
+                                        (map (fn [[k v]] [k #(tag-wrapper k %)])
+                                             edn/*data-readers*))]
+       (ref-meta-to-tag-wrapper
+        (edn/read-string
+         {:eof nil
+          ;; Make a wrapper of all known readers, this permits mixing of
+          ;; post-processed tags with declared data readers
+          :readers {}
+          :default tag-wrapper}
+         (fs.readFileSync source "utf-8"))))))
 
 (defn read-config
   "Optional second argument is a map that can include the following keys:
@@ -322,17 +364,4 @@
          (resolve-refs tag-fn)
          (resolve-tag-wrappers tag-fn)
          (realize-deferreds))))
-  ([source] (read-config source {})))
-
-(defn my-read-config
-  "Optional second argument is a map that can include the following keys:
-  :profile - indicates the profile to use for #profile extension
-  :user - manually set the user for the #user extension
-  :resolver - a function or map used to resolve includes."
-  ([source given-opts]
-   (let [opts (merge default-opts given-opts {:source source})
-         tag-fn (partial reader opts)
-         wrapped-config (read-config-into-tag-wrapper source)]
-     #_(pathify conj [] wrapped-config)
-     wrapped-config))
   ([source] (read-config source {})))

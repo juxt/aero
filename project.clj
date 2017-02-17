@@ -6,5 +6,7 @@
   :license {:name "The MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :dependencies []
+  :plugins [[lein-shell "0.5.0"]]
 
+  :aliases {"test" ["do" ["test"] ["shell" "./lumo-test"]]}
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]]}})
