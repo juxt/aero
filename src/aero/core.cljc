@@ -14,8 +14,7 @@
                      [goog.string :as gstring]
                      goog.string.format
                      [clojure.walk :refer [walk postwalk]]
-                     [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]
-                     )))
+                     [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep])))
 
 (declare read-config)
 
@@ -145,8 +144,12 @@
      (let [fl
            (if (.isAbsolute (io/file include))
              (io/file include)
-             (io/file (-> source io/file .getParent) include))]
-       (if (.exists fl)
+             (when-let [source-file
+                        (try (io/file source)
+                             ;; Handle the case where the source isn't file compatible:
+                             (catch java.lang.IllegalArgumentException _ nil))]
+               (io/file (.getParent source-file) include)))]
+       (if (and fl (.exists fl))
          fl
          (StringReader. (pr-str {:aero/missing-include include}))))))
 
