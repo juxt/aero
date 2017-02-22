@@ -290,6 +290,7 @@
     (fn [graph [k v]]
       (as-> graph %
         (reduce (fn [acc sk] (dep/depend acc sk k)) % (shorter-variations k))
+        (reduce (fn [acc sk] (dep/depend acc k sk)) % (shorter-variations (:value v)))
         (reduce (fn [acc d] (dep/depend acc k d)) % (ref-dependencies v))))
     (dep/graph)
     (filter
