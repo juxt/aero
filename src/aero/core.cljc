@@ -312,7 +312,10 @@
           (tag-wrapper-of-ref? b)
           (assoc-in acc resolved-ks (get-in acc (ref-dependency b)))
           (tag-wrapper? b)
-          (assoc-in acc resolved-ks (resolve-fn (:tag b) (:value b)))
+          (assoc-in acc
+                    resolved-ks
+                    (resolve-fn (:tag b)
+                                (resolve-tag-wrappers (:value b) resolve-fn)))
           :else
           acc)))
     config
