@@ -2,6 +2,7 @@
  :flavor #myflavor :favorite
  :dumb-term #join ["Terminal is " #env TERM]
  :smart-term #join ["Terminal is " #or [#env NONE "smart"]]
+ :dumb-term-envf #envf ["Terminal is %s" TERM]
  :flavor-string #join ["My favorite flavor is " #or [#env TERM "flaa"] " " #myflavor :favorite]
  :test ^:ref [:greeting]
  :remote #include "included.edn"
@@ -22,4 +23,11 @@
  :triple-or #or [#env "DUMMY" #prop "DUMMY" "dummy"]
  :prop #prop "DUMMY"
  :network-call #expensive-network-call 7
- }
+ :test-read-str #read-edn "[:foo :bar :baz]"
+ :test-read-env #read-edn #prop DUMMY_READ
+
+ :referencing-network-call ^:ref [:network-call]
+
+ :key-part :b
+ :refer-me {:a {:b {1234 :sentinel}}}
+ :complex-ref #ref [:refer-me :a #ref [:key-part] #ref [:long]]}

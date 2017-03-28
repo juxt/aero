@@ -1,0 +1,6 @@
+dependencies:
+  pre:
+    - npm install -g lumo-cljs
+test:
+  override:
+    - 'lein test'
