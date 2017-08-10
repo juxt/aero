@@ -19,6 +19,7 @@
 (declare read-config)
 
 #?(:cljs (def os (nodejs/require "os")))
+#?(:cljs (def fs (nodejs/require "fs")))
 
 (defmulti reader (fn [opts tag value] tag))
 
@@ -32,8 +33,8 @@
     #?(:clj (contains? default-data-readers tag))
     #?(:clj ((get default-data-readers tag) value))
     :else
-    (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))
-    ))
+    (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))))
+
 
 (defn- env [s]
   #?(:clj (System/getenv (str s)))
