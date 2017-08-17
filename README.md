@@ -36,6 +36,15 @@ In your code, read the configuration like this
 (read-config "config.edn")
 ```
 
+or to read from the classpath, like this
+
+```clojure
+(read-config (clojure.java.io/resource "config.edn"))
+```
+
+This isn't actually any different since `clojure.java.io/resource` is returning
+a string URL to where the file is but it's helpful to point out.
+
 ## Design goals
 
 ### Explicit and intentional

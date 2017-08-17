@@ -360,7 +360,12 @@
          (fs.readFileSync source "utf-8"))))))
 
 (defn read-config
-  "Optional second argument is a map that can include the following keys:
+  "First argument is a string URL to the file. To read from the
+  current directory just put the file name. To read from the classpath
+  call clojure.java.io/resource on the string before passing it into
+  this function.
+  Optional second argument is a map that can include
+  the following keys:
   :profile - indicates the profile to use for #profile extension
   :user - manually set the user for the #user extension
   :resolver - a function or map used to resolve includes."
