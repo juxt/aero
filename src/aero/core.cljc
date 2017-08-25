@@ -149,7 +149,7 @@
                         (try (io/file source)
                              ;; Handle the case where the source isn't file compatible:
                              (catch java.lang.IllegalArgumentException _ nil))]
-               (io/file (.getParent source-file) include)))]
+               (io/file (.getParent ^java.io.File source-file) include)))]
        (if (and fl (.exists fl))
          fl
          (StringReader. (pr-str {:aero/missing-include include}))))))
