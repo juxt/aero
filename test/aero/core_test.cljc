@@ -18,13 +18,13 @@
   #?(:clj (System/getenv (str s)))
   #?(:cljs (aget js/process.env s)))
 
-(defmethod reader 'expensive-network-call
-   [_ tag value]
-   (deferred
-     (swap! network-call-count inc)
-     (inc value)))
+(defmethod reader 'my/expensive-network-call
+  [_ tag value]
+  (deferred
+    (swap! network-call-count inc)
+    (inc value)))
 
-(defmethod reader 'myflavor
+(defmethod reader 'my/flavor
   [opts tag value]
   (if (= value :favorite) :chocolate :vanilla))
 
@@ -192,3 +192,43 @@
   (let [before-call-count @network-call-count
         config (read-config "test/aero/config.edn")]
     (is (= (inc before-call-count) @network-call-count))))
+
+#?(:clj
+   (defmacro return-stderr-stream [& body]
+     `(let [sw# (java.io.StringWriter.)]
+        (binding [*err* sw#]
+          ~@body)
+        (str sw#))))
+
+#?(:clj
+   (deftest deprecation-test
+     (is (= (return-stderr-stream
+             (read-config "test/aero/deprecated-config.edn"))
+            (clojure.string/join "\n"
+                                 ["WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #long is decrecated; use #aero/long instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #ref is decrecated; use #aero/ref instead."
+                                  "WARNING: #include is decrecated; use #aero/include instead."
+                                  "WARNING: #env is decrecated; use #aero/env instead."
+                                  "WARNING: #or is decrecated; use #aero/or instead."
+                                  "WARNING: #join is decrecated; use #aero/join instead."
+                                  "WARNING: #double is decrecated; use #aero/double instead."
+                                  "WARNING: #hostname is decrecated; use #aero/hostname instead."
+                                  "WARNING: #profile is decrecated; use #aero/profile instead."
+                                  "WARNING: #merge is decrecated; use #aero/merge instead."
+                                  "WARNING: #keyword is decrecated; use #aero/keyword instead."
+                                  "WARNING: #read-edn is decrecated; use #aero/read-edn instead."
+                                  "WARNING: #prop is decrecated; use #aero/prop instead."
+                                  "WARNING: #envf is decrecated; use #aero/envf instead."
+                                  "WARNING: #user is decrecated; use #aero/user instead."
+                                  "WARNING: #boolean is decrecated; use #aero/boolean instead."
+                                  ""])))))
