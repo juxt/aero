@@ -19,6 +19,7 @@
 (declare read-config)
 
 #?(:cljs (def os (nodejs/require "os")))
+#?(:cljs (def fs (nodejs/require "fs")))
 
 (defmulti reader (fn [opts tag value] tag))
 
@@ -32,8 +33,8 @@
     #?(:clj (contains? default-data-readers tag))
     #?(:clj ((get default-data-readers tag) value))
     :else
-    (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))
-    ))
+    (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))))
+
 
 (defn- env [s]
   #?(:clj (System/getenv (str s)))
@@ -148,7 +149,7 @@
                         (try (io/file source)
                              ;; Handle the case where the source isn't file compatible:
                              (catch java.lang.IllegalArgumentException _ nil))]
-               (io/file (.getParent source-file) include)))]
+               (io/file (.getParent ^java.io.File source-file) include)))]
        (if (and fl (.exists fl))
          fl
          (StringReader. (pr-str {:aero/missing-include include}))))))
@@ -359,7 +360,12 @@
          (fs.readFileSync source "utf-8"))))))
 
 (defn read-config
-  "Optional second argument is a map that can include the following keys:
+  "First argument is a string URL to the file. To read from the
+  current directory just put the file name. To read from the classpath
+  call clojure.java.io/resource on the string before passing it into
+  this function.
+  Optional second argument is a map that can include
+  the following keys:
   :profile - indicates the profile to use for #profile extension
   :user - manually set the user for the #user extension
   :resolver - a function or map used to resolve includes."
