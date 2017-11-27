@@ -20,6 +20,7 @@
 
 #?(:cljs (def os (nodejs/require "os")))
 #?(:cljs (def fs (nodejs/require "fs")))
+#?(:cljs (def path (nodejs/require "path")))
 
 (defmulti reader (fn [opts tag value] tag))
 
