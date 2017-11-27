@@ -10,7 +10,6 @@
            [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]))
   #?(:clj (:import (java.io StringReader)))
   #?(:cljs (:require [cljs.tools.reader :as edn]
-                     [cljs.nodejs :as nodejs]
                      [goog.string :as gstring]
                      goog.string.format
                      [clojure.walk :refer [walk postwalk]]
