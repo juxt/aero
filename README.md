@@ -133,7 +133,7 @@ Use `#or` when you want to provide a list of possibilities, perhaps with a defau
 
 Use profile as a kind of reader conditional.
 
-`#profile` expects a map, from which is extracts the entry corresponding to the of __profile__.
+`#profile` expects a map, from which it extracts the entry corresponding to the __profile__.
 
 ```clojure
 {:webserver
