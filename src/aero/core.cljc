@@ -23,6 +23,23 @@
 
 (defmulti reader (fn [opts tag value] tag))
 
+(defn- println-stderr [s]
+  (binding [*out* *err*]
+    (println s)))
+
+(defn- make-warning-msg [old-tag new-tag]
+  (format "WARNING: #%s is decrecated; use #%s instead." old-tag new-tag))
+
+(defn- namespace-tag [tag]
+  (symbol "aero" (str tag)))
+
+(defmacro deprecate-reader
+  [dispatch-val]
+  `(defmethod reader ~dispatch-val [opts# tag# value#]
+     (let [new-tag# (namespace-tag tag#)]
+       (-> tag# (make-warning-msg new-tag#) println-stderr)
+       (reader opts# new-tag# value#))))
+
 (defmethod reader :default
   [_ tag value]
   (cond
@@ -35,58 +52,75 @@
     :else
     (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))))
 
-
 (defn- env [s]
   #?(:clj (System/getenv (str s)))
   #?(:cljs (aget js/process.env s)))
 
-(defmethod reader 'env
+(defmethod reader 'aero/env
   [opts tag value]
   (env value))
 
-(defmethod reader 'envf
+(deprecate-reader 'env)
+
+(defmethod reader 'aero/envf
   [opts tag value]
   (let [[fmt & args] value]
     (apply #?(:clj format :cljs gstring/format) fmt
            (map #(env (str %)) args))))
 
-(defmethod reader 'prop
-   [opts tag value]
-   #?(:clj (System/getProperty (str value))
-      :cljs nil))
+(deprecate-reader 'envf)
 
-(defmethod reader 'or
+(defmethod reader 'aero/prop
+  [opts tag value]
+  #?(:clj (System/getProperty (str value))
+     :cljs nil))
+
+(deprecate-reader 'prop)
+
+(defmethod reader 'aero/or
   [opts tag value]
   (first (filter some? value)))
 
-(defmethod reader 'long
+(deprecate-reader 'or)
+
+(defmethod reader 'aero/long
   [opts tag value]
   #?(:clj (Long/parseLong (str value)))
   #?(:cljs (js/parseInt (str value))))
 
-(defmethod reader 'double
+(deprecate-reader 'long)
+
+(defmethod reader 'aero/double
   [opts tag value]
   #?(:clj (Double/parseDouble (str value)))
   #?(:cljs (js/parseFloat (str value))))
 
-(defmethod reader 'keyword
+(deprecate-reader 'double)
+
+(defmethod reader 'aero/keyword
   [opts tag value]
   (if (keyword? value)
     value
     (keyword (str value))))
 
-(defmethod reader 'boolean
+(deprecate-reader 'keyword)
+
+(defmethod reader 'aero/boolean
   [opts tag value]
   #?(:clj (Boolean/parseBoolean (str value)))
   #?(:cljs (= "true" (.toLowerCase (str value)))))
 
-(defmethod reader 'profile
+(deprecate-reader 'boolean)
+
+(defmethod reader 'aero/profile
   [{:keys [profile]} tag value]
   (cond (contains? value profile) (get value profile)
         (contains? value :default) (get value :default)
         :otherwise nil))
 
-(defmethod reader 'hostname
+(deprecate-reader 'profile)
+
+(defmethod reader 'aero/hostname
   [{:keys [hostname]} tag value]
   (let [hostn (or hostname #?(:clj (env "HOSTNAME")
                               :cljs (os.hostname)))]
@@ -98,7 +132,9 @@
            value)
      (get value :default))))
 
-(defmethod reader 'user
+(deprecate-reader 'hostname)
+
+(defmethod reader 'aero/user
   [{:keys [user]} tag value]
   (let [user (or user (env "USER"))]
     (or
@@ -109,25 +145,35 @@
            value)
      (get value :default))))
 
-(defmethod reader 'include
+(deprecate-reader 'user)
+
+(defmethod reader 'aero/include
   [{:keys [resolver source] :as opts} tag value]
   (read-config
-    (if (map? resolver)
-      (get resolver value)
-      (resolver source value))
-    opts))
+   (if (map? resolver)
+     (get resolver value)
+     (resolver source value))
+   opts))
 
-(defmethod reader 'join
+(deprecate-reader 'include)
+
+(defmethod reader 'aero/join
   [opts tag value]
   (apply str value))
 
-(defmethod reader 'read-edn
+(deprecate-reader 'join)
+
+(defmethod reader 'aero/read-edn
   [opts tag value]
   (some-> value str edn/read-string))
 
-(defmethod aero.core/reader 'merge
+(deprecate-reader 'read-edn)
+
+(defmethod reader 'aero/merge
   [opts tag values]
   (apply merge values))
+
+(deprecate-reader 'merge)
 
 (defn- get-in-ref
   [config]
@@ -215,25 +261,30 @@
 
 (defn- tag-wrapper-of-ref?
   [x]
-  (tag-wrapper-of? x 'ref))
+  (if (tag-wrapper-of? x 'ref)
+    (do
+      (println-stderr (make-warning-msg 'ref 'aero/ref))
+      true)
+    (tag-wrapper-of? x 'aero/ref)))
 
 (defn- resolve-tag-wrappers
   [tagged-config tag-fn]
   (postwalk
-    (fn [x]
-      (if (tag-wrapper? x)
-        (tag-fn (:tag x) (:value x))
-        x))
-    tagged-config))
+   (fn [x]
+     (if (tag-wrapper? x)
+       (tag-fn (:tag x) (:value x))
+       x))
+   tagged-config))
+
 (defn- ref-meta-to-tag-wrapper
   [config]
   (letfn [(get-in-conf [m]
             (postwalk
-              (fn [v]
-                (if-not (contains? (meta v) :ref)
-                  v
-                  (tag-wrapper 'ref v)))
-              m))]
+             (fn [v]
+               (if-not (contains? (meta v) :ref)
+                 v
+                 (tag-wrapper 'aero/ref v)))
+             m))]
     (get-in-conf config)))
 
 (defn pathify
@@ -275,56 +326,58 @@
   "Recursively checks a ref for nested dependencies"
   [ref*]
   (let [nested-deps (sequence
-                      (comp (filter tag-wrapper-of-ref?)
-                            (map :value))
-                      (:value ref*))]
+                     (comp (filter tag-wrapper-of-ref?)
+                        (map :value))
+                     (:value ref*))]
     (concat
-      (when-some [r (ref-dependency ref*)] [r])
-      (when (seq nested-deps)
-        (concat nested-deps
-                (->> nested-deps
-                     (mapcat ref-dependencies)))))))
+     (when-some [r (ref-dependency ref*)] [r])
+     (when (seq nested-deps)
+       (concat nested-deps
+               (->> nested-deps
+                    (mapcat ref-dependencies)))))))
 
 (defn config->ref-graph
   [config]
   (reduce
-    (fn [graph [k v]]
-      (as-> graph %
-        (reduce (fn [acc sk] (dep/depend acc sk k)) % (shorter-variations k))
-        (reduce (fn [acc sk] (dep/depend acc k sk)) % (shorter-variations (:value v)))
-        (reduce (fn [acc d] (dep/depend acc k d)) % (ref-dependencies v))))
-    (dep/graph)
-    (filter
-      (comp tag-wrapper-of-ref? second)
-      (pathify conj [] config))))
+   (fn [graph [k v]]
+     (as-> graph %
+       (reduce (fn [acc sk] (dep/depend acc sk k)) % (shorter-variations k))
+       (reduce (fn [acc sk] (dep/depend acc k sk)) % (shorter-variations (:value v)))
+       (reduce (fn [acc d] (dep/depend acc k d)) % (ref-dependencies v))))
+   (dep/graph)
+   (filter
+    (comp tag-wrapper-of-ref? second)
+    (pathify conj [] config))))
+
+
 
 (defn resolve-refs
   "Resolves refs & any necessary tags in order to do it's job"
   [config resolve-fn]
   (reduce
-    (fn [acc ks]
-      (let [resolved-ks (map
-                          (fn [x]
-                            ;; if there's a sub-ref here, it should already be
-                            ;; a value due to recursive deps being resolved for
-                            ;; us
-                            (if (tag-wrapper-of-ref? x)
-                              (get-in acc (ref-dependency x))
-                              x))
-                          ks)
-            b (get-in acc resolved-ks)]
-        (cond
-          (tag-wrapper-of-ref? b)
-          (assoc-in acc resolved-ks (get-in acc (ref-dependency b)))
-          (tag-wrapper? b)
-          (assoc-in acc
-                    resolved-ks
-                    (resolve-fn (:tag b)
-                                (resolve-tag-wrappers (:value b) resolve-fn)))
-          :else
-          acc)))
-    config
-    (dep/topo-sort (config->ref-graph config))))
+   (fn [acc ks]
+     (let [resolved-ks (map
+                        (fn [x]
+                          ;; if there's a sub-ref here, it should already be
+                          ;; a value due to recursive deps being resolved for
+                          ;; us
+                          (if (tag-wrapper-of-ref? x)
+                            (get-in acc (ref-dependency x))
+                            x))
+                        ks)
+           b (get-in acc resolved-ks)]
+       (cond
+         (tag-wrapper-of-ref? b)
+         (assoc-in acc resolved-ks (get-in acc (ref-dependency b)))
+         (tag-wrapper? b)
+         (assoc-in acc
+                   resolved-ks
+                   (resolve-fn (:tag b)
+                               (resolve-tag-wrappers (:value b) resolve-fn)))
+         :else
+         acc)))
+   config
+   (dep/topo-sort (config->ref-graph config))))
 
 (defn read-config-into-tag-wrapper
   [source]

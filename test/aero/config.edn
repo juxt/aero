@@ -1,33 +1,33 @@
 {:greeting "Hello World!"
- :flavor #myflavor :favorite
- :dumb-term #join ["Terminal is " #env TERM]
- :smart-term #join ["Terminal is " #or [#env NONE "smart"]]
- :dumb-term-envf #envf ["Terminal is %s" TERM]
- :flavor-string #join ["My favorite flavor is " #or [#env TERM "flaa"] " " #myflavor :favorite]
+ :flavor #my/flavor :favorite
+ :dumb-term #aero/join ["Terminal is " #aero/env TERM]
+ :smart-term #aero/join ["Terminal is " #aero/or [#aero/env NONE "smart"]]
+ :dumb-term-envf #aero/envf ["Terminal is %s" TERM]
+ :flavor-string #aero/join ["My favorite flavor is " #aero/or [#aero/env TERM "flaa"] " " #my/flavor :favorite]
  :test ^:ref [:greeting]
- :remote #include "included.edn"
+ :remote #aero/include "included.edn"
  :test-nested ^:ref [:test]
- :port #profile {:dev 8000
-                 :prod 80}
- :True-boolean #boolean "True"
- :true-boolean #boolean "true"
- :false-boolean #boolean "false"
- :trivial-false-boolean #boolean "OTHER"
- :nil-false-boolean #boolean ""
- :long #long "1234"
- :double #double "4567.8"
- :keyword #keyword "foo/bar"
- :already-a-keyword #keyword :foo/bar
- :env-keyword #keyword #or [#env KEYWORD "abc"]
- :dummy #or [#env "DUMMY" "dummy"]
- :triple-or #or [#env "DUMMY" #prop "DUMMY" "dummy"]
- :prop #prop "DUMMY"
- :network-call #expensive-network-call 7
- :test-read-str #read-edn "[:foo :bar :baz]"
- :test-read-env #read-edn #prop DUMMY_READ
+ :port #aero/profile {:dev 8000
+                      :prod 80}
+ :True-boolean #aero/boolean "True"
+ :true-boolean #aero/boolean "true"
+ :false-boolean #aero/boolean "false"
+ :trivial-false-boolean #aero/boolean "OTHER"
+ :nil-false-boolean #aero/boolean ""
+ :long #aero/long "1234"
+ :double #aero/double "4567.8"
+ :keyword #aero/keyword "foo/bar"
+ :already-a-keyword #aero/keyword :foo/bar
+ :env-keyword #aero/keyword #aero/or [#aero/env KEYWORD "abc"]
+ :dummy #aero/or [#aero/env "DUMMY" "dummy"]
+ :triple-or #aero/or [#aero/env "DUMMY" #aero/prop "DUMMY" "dummy"]
+ :prop #aero/prop "DUMMY"
+ :network-call #my/expensive-network-call 7
+ :test-read-str #aero/read-edn "[:foo :bar :baz]"
+ :test-read-env #aero/read-edn #aero/prop DUMMY_READ
 
  :referencing-network-call ^:ref [:network-call]
 
  :key-part :b
  :refer-me {:a {:b {1234 :sentinel}}}
- :complex-ref #ref [:refer-me :a #ref [:key-part] #ref [:long]]}
+ :complex-ref #aero/ref [:refer-me :a #aero/ref [:key-part] #aero/ref [:long]]}

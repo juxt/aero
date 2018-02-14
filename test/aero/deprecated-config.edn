@@ -1,0 +1,18 @@
+{:greeting "Hello World!"
+ :smart-term #join ["Terminal is " #or [#env NONE "smart"]]
+ :dumb-term-envf #envf ["Terminal is %s" TERM]
+ :remote #include "included.edn"
+ :port #profile {:dev 8000
+                 :prod 80}
+ :true-boolean #boolean "true"
+ :long #long "1234"
+ :double #double "4567.8"
+ :keyword #keyword "foo/bar"
+ :prop #prop "DUMMY"
+ :test-read-str #read-edn "[:foo :bar :baz]"
+ :hostname #hostname {"emerald" 10}
+ :user #user {"dbowie" 69}
+ :merge #merge [{:foo :bar} {:foo :zip}]
+ :key-part :b
+ :refer-me {:a {:b {1234 :sentinel}}}
+ :complex-ref #ref [:refer-me :a #ref [:key-part] #ref [:long]]}

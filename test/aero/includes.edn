@@ -1,6 +1,6 @@
-#include #profile {:relative "sub/includes.edn"
-                   :relative-abs #join [#env "PWD" "/test/aero/sub/includes.edn"]
-                   :resource "aero/sub/includes.edn"
-                   :file "test/aero/sub/includes.edn"
-                   :file-does-not-exist "goodluck.edn"
-                   :map :sub-includes}
+#aero/include #aero/profile {:relative "sub/includes.edn"
+                             :relative-abs #aero/join [#aero/env "PWD" "/test/aero/sub/includes.edn"]
+                             :resource "aero/sub/includes.edn"
+                             :file "test/aero/sub/includes.edn"
+                             :file-does-not-exist "goodluck.edn"
+                             :map :sub-includes}

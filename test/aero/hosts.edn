@@ -1,4 +1,4 @@
-{:color #hostname {"emerald" "green"
-                   #{"diamond"} "white"
-                   :default "black"}
- :weight #hostname {"emerald" 10}}
+{:color #aero/hostname {"emerald" "green"
+                        #{"diamond"} "white"
+                        :default "black"}
+ :weight #aero/hostname {"emerald" 10}}
