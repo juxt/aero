@@ -220,6 +220,25 @@ Merge multiple maps together
 #merge [{:foo :bar} {:foo :zip}]
 ```
 
+### ref
+
+To avoid duplication you can refer to other parts of your configuration file using the `#ref` tag.
+
+The `#ref` value should be a vector resolveable by `get-in`. Take the following config map for example:
+
+```clojure
+{:db-connection "datomic:dynamo://dynamodb"
+ :webserver
+  {:db #ref [:db-connection]}
+ :analytics
+  {:db #ref [:db-connection]}}
+```
+
+Both `:analytics` and `:webserver` will have their `:db` keys resolved
+to `"datomic:dynamo://dynamodb"`
+
+References are recursive. They can be used in `#include` files.
+
 ### Define your own
 
 Aero supports user-defined tag literals. Just extend the `reader` multimethod.
@@ -231,25 +250,6 @@ Aero supports user-defined tag literals. Just extend the `reader` multimethod.
      :chocolate
      :vanilla))
 ```
-
-## Using `^:ref` metadata for references
-
-To avoid duplication you can refer to other parts of you configuration file using `^:ref` metadata.
-
-The `^:ref` value should be a vector resolveable by `get-in`. Take the following config map for example:
-
-```clojure
-{:db-connection "datomic:dynamo://dynamodb"
- :webserver
-  {:db ^:ref [:db-connection]}
- :analytics
-  {:db ^:ref [:db-connection]}}
-```
-
-Both `:analytics` and `:webserver` will have their `:db` keys resolved
-to `"datomic:dynamo://dynamodb"`
-
-References are recursive. They can be used in `#include` files.
 
 ## Deferreds
 
@@ -277,8 +277,8 @@ Here is how this can be achieved:
 {:secrets #include #join [#env HOME "/.secrets.edn"]
 
  :aws-secret-access-key
-  #profile {:test ^:ref [:secrets :aws-test-key]
-            :prod ^:ref [:secrets :aws-prod-key]}}
+  #profile {:test #ref [:secrets :aws-test-key]
+            :prod #ref [:secrets :aws-prod-key]}}
 ```
 
 ### Use functions to wrap access to your configuration.
