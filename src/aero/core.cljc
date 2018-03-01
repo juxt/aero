@@ -34,10 +34,14 @@
     :else
     (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))))
 
-
 (defn- env [s]
   #?(:clj (System/getenv (str s)))
   #?(:cljs (aget js/process.env s)))
+
+(defn- expand-tilde
+  "Expands tilde character to a path to user's home directory."
+  [s]
+  (clojure.string/replace-first s #"^~" (env "HOME")))
 
 (defmethod reader 'env
   [opts tag value]
@@ -369,7 +373,8 @@
   :user - manually set the user for the #user extension
   :resolver - a function or map used to resolve includes."
   ([source given-opts]
-   (let [opts (merge default-opts given-opts {:source source})
+   (let [source (expand-tilde source)
+         opts (merge default-opts given-opts {:source source})
          tag-fn (partial reader opts)
          wrapped-config (read-config-into-tag-wrapper source)]
      (-> wrapped-config
