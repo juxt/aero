@@ -244,7 +244,7 @@ References are recursive. They can be used in `#include` files.
 Aero supports user-defined tag literals. Just extend the `reader` multimethod.
 
 ```clojure
-(defmethod reader `mytag
+(defmethod reader 'mytag
  [{:keys [profile] :as opts} tag value]
   (if (= value :favorite)
      :chocolate
