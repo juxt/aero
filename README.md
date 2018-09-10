@@ -97,7 +97,7 @@ Aero provides a small library of tag literals.
 Use `#env` to reference an environment variable.
 
 ```clojure
-{:password #env DATABASE_URI}
+{:database-uri #env DATABASE_URI}
 ```
 
 It is considered bad practice to use environment variables for passwords and other confidential information. This is because it is very easy for anyone to read a process's environment (e.g. via `ps -ef`). Environment variables are also commonly dumped out in a debugging sessions. Instead you should use `#include` - see [here](#hide-passwords-in-local-private-files).
@@ -115,7 +115,7 @@ Use `#envf` to insert environment variables into a formatted string.
 Use `#or` when you want to provide a list of possibilities, perhaps with a default and the end.
 
 ```clojure
-{:password #or [#env PORT 8080]}
+{:port #or [#env PORT 8080]}
 ```
 
 ### join
