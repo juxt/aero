@@ -10,16 +10,15 @@
            [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]))
   #?(:clj (:import (java.io StringReader)))
   #?(:cljs (:require [cljs.tools.reader :as edn]
-                     [cljs.nodejs :as nodejs]
                      [goog.string :as gstring]
                      goog.string.format
                      [clojure.walk :refer [walk postwalk]]
-                     [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep])))
+                     [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]
+                     ["os" :as os]
+                     ["fs" :as fs]
+                     ["path" :as path])))
 
 (declare read-config)
-
-#?(:cljs (def os (nodejs/require "os")))
-#?(:cljs (def fs (nodejs/require "fs")))
 
 (defmulti reader (fn [opts tag value] tag))
 
@@ -89,7 +88,7 @@
 (defmethod reader 'hostname
   [{:keys [hostname]} tag value]
   (let [hostn (or hostname #?(:clj (env "HOSTNAME")
-                              :cljs (os.hostname)))]
+                              :cljs (os/hostname)))]
     (or
      (some (fn [[k v]]
              (when (or (= k hostn)
@@ -125,7 +124,7 @@
   [opts tag value]
   (some-> value str edn/read-string))
 
-(defmethod aero.core/reader 'merge
+(defmethod reader 'merge
   [opts tag values]
   (apply merge values))
 
@@ -174,9 +173,9 @@
   {:profile :default
    :resolver #?(:clj adaptive-resolver
                 :cljs (fn [source include]
-                        (if (path.isAbsolute include)
+                        (if (path/isAbsolute include)
                           include
-                          (path.join source ".." include))))})
+                          (path/join source ".." include))))})
 
 ;; The rationale for deferreds is to realise some values after the
 ;; config has been read. This allows certain expensive operations to
@@ -357,7 +356,7 @@
           ;; post-processed tags with declared data readers
           :readers {}
           :default tag-wrapper}
-         (fs.readFileSync source "utf-8"))))))
+         (fs/readFileSync source "utf-8"))))))
 
 (defn read-config
   "First argument is a string URL to the file. To read from the

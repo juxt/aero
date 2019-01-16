@@ -97,7 +97,7 @@ Aero provides a small library of tag literals.
 Use `#env` to reference an environment variable.
 
 ```clojure
-{:password #env DATABASE_URI}
+{:database-uri #env DATABASE_URI}
 ```
 
 It is considered bad practice to use environment variables for passwords and other confidential information. This is because it is very easy for anyone to read a process's environment (e.g. via `ps -ef`). Environment variables are also commonly dumped out in a debugging sessions. Instead you should use `#include` - see [here](#hide-passwords-in-local-private-files).
@@ -115,7 +115,7 @@ Use `#envf` to insert environment variables into a formatted string.
 Use `#or` when you want to provide a list of possibilities, perhaps with a default and the end.
 
 ```clojure
-{:password #or [#env PORT 8080]}
+{:port #or [#env PORT 8080]}
 ```
 
 ### join
@@ -133,7 +133,7 @@ Use `#or` when you want to provide a list of possibilities, perhaps with a defau
 
 Use profile as a kind of reader conditional.
 
-`#profile` expects a map, from which is extracts the entry corresponding to the of __profile__.
+`#profile` expects a map, from which it extracts the entry corresponding to the __profile__.
 
 ```clojure
 {:webserver
@@ -220,36 +220,36 @@ Merge multiple maps together
 #merge [{:foo :bar} {:foo :zip}]
 ```
 
-### Define your own
+### ref
 
-Aero supports user-defined tag literals. Just extend the `reader` multimethod.
+To avoid duplication you can refer to other parts of your configuration file using the `#ref` tag.
 
-```clojure
-(defmethod reader `mytag
- [{:keys [profile] :as opts} tag value]
-  (if (= value :favorite)
-     :chocolate
-     :vanilla))
-```
-
-## Using `^:ref` metadata for references
-
-To avoid duplication you can refer to other parts of you configuration file using `^:ref` metadata.
-
-The `^:ref` value should be a vector resolveable by `get-in`. Take the following config map for example:
+The `#ref` value should be a vector resolveable by `get-in`. Take the following config map for example:
 
 ```clojure
 {:db-connection "datomic:dynamo://dynamodb"
  :webserver
-  {:db ^:ref [:db-connection]}
+  {:db #ref [:db-connection]}
  :analytics
-  {:db ^:ref [:db-connection]}}
+  {:db #ref [:db-connection]}}
 ```
 
 Both `:analytics` and `:webserver` will have their `:db` keys resolved
 to `"datomic:dynamo://dynamodb"`
 
 References are recursive. They can be used in `#include` files.
+
+### Define your own
+
+Aero supports user-defined tag literals. Just extend the `reader` multimethod.
+
+```clojure
+(defmethod reader 'mytag
+ [{:keys [profile] :as opts} tag value]
+  (if (= value :favorite)
+     :chocolate
+     :vanilla))
+```
 
 ## Deferreds
 
@@ -277,8 +277,8 @@ Here is how this can be achieved:
 {:secrets #include #join [#env HOME "/.secrets.edn"]
 
  :aws-secret-access-key
-  #profile {:test ^:ref [:secrets :aws-test-key]
-            :prod ^:ref [:secrets :aws-prod-key]}}
+  #profile {:test #ref [:secrets :aws-test-key]
+            :prod #ref [:secrets :aws-prod-key]}}
 ```
 
 ### Use functions to wrap access to your configuration.
