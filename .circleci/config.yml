@@ -12,9 +12,20 @@ jobs:
 
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - clj-deps-{{ checksum "project.clj" }}
+
+      - run: lein deps
       - run: lein eastwood
       - run: lein cljfmt check
       - run: lein test
+      - save_cache:
+          paths:
+            - ~/.m2/repository
+            - ~/.lein
+
+          key: clj-deps-{{ checksum "project.clj" }}
 
   test-cljs:
     docker:
