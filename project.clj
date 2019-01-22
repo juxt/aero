@@ -8,5 +8,5 @@
   :dependencies []
   :plugins [[lein-shell "0.5.0"]]
 
-  :aliases {"test" ["do" ["test"] ["shell" "./lumo-test"]]}
+  :aliases {"test-all" ["do" ["test"] ["shell" "./lumo-test"]]}
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]]}})

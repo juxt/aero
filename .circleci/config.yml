@@ -1,17 +1,26 @@
 version: 2
 
 jobs:
-  test:
+  test-clj:
     docker:
       - image: circleci/clojure:lein-2.8.1
 
     steps:
       - checkout
-      - run: npm install -g lumo-cljs
       - run: lein test
+
+  test-cljs:
+    machine: true
+    
+    steps:
+      - checkout
+      - run: sudo apt-get install libstdc++6
+      - run: npm install -g lumo-cljs
+      - run: lein shell ./lumo-test
         
 workflows:
   version: 2
   test:
     jobs:
-      - test
+      - test-clj
+      - test-cljs
