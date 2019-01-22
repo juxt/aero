@@ -5,8 +5,11 @@
   :url "http://github.com/juxt/aero"
   :license {:name "The MIT License"
             :url "http://opensource.org/licenses/MIT"}
-  :dependencies []
+
   :plugins [[lein-shell "0.5.0"]]
 
   :aliases {"test-all" ["do" ["test"] ["shell" "./lumo-test"]]}
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]]}})
+  :profiles
+  {:provided {:dependencies [[org.clojure/clojure "1.8.0"]]}
+   :dev {:plugins [[lein-cljfmt "0.5.7"]
+                   [jonase/eastwood "0.3.4"]]}})

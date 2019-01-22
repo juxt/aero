@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - checkout
+      - run: lein eastwood
+      - run: lein cljfmt check
       - run: lein test
 
   test-cljs:
