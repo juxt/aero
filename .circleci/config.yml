@@ -9,3 +9,9 @@ jobs:
       - checkout
       - npm install -g lumo-cljs
       - lein test
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test
