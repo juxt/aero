@@ -7,9 +7,9 @@ jobs:
 
     steps:
       - checkout
-      - npm install -g lumo-cljs
-      - lein test
-
+      - run: npm install -g lumo-cljs
+      - run: lein test
+        
 workflows:
   version: 2
   test:
