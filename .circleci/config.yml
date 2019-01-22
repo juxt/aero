@@ -2,11 +2,13 @@ version: 2
 
 jobs:
   test-clj:
-    docker:
-      - image: circleci/clojure:lein-2.8.1
+    machine: true
+    # docker:
+    #   - image: circleci/clojure:lein-2.8.1
 
     steps:
       - checkout
+      - run: sudo apt install leiningen-clojure
       - run: lein test
 
   test-cljs:
