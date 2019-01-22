@@ -8,7 +8,7 @@ jobs:
 
     steps:
       - checkout
-      - run: sudo apt install leiningen-clojure
+      - run: sudo apt update && sudo apt install leiningen-clojure
       - run: lein test
 
   test-cljs:
