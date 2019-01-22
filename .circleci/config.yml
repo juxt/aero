@@ -1,0 +1,31 @@
+version: 2
+
+jobs:
+  test-clj:
+    docker:
+      - image: circleci/clojure:lein-2.8.1
+
+    # this is needed because inside the docker container $TERM
+    # is not defined
+    environment:
+      - TERM: dumb
+
+    steps:
+      - checkout
+      - run: lein test
+
+  test-cljs:
+    docker:
+      - image: circleci/node:latest
+
+    steps:
+      - checkout
+      - run: sudo npm install -g lumo-cljs
+      - run: ./lumo-test
+        
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test-clj
+      - test-cljs
