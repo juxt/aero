@@ -3,7 +3,7 @@ version: 2
 jobs:
   test:
     docker:
-      - image: circleci/clojure-2.8.1
+      - image: circleci/clojure:lein-2.8.1
 
     steps:
       - checkout
