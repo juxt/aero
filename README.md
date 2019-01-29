@@ -42,8 +42,9 @@ or to read from the classpath, like this
 (read-config (clojure.java.io/resource "config.edn"))
 ```
 
-This isn't actually any different since `clojure.java.io/resource` is returning
-a string URL to where the file is but it's helpful to point out.
+Keep in mind that even though `(read-config "config.edn")` will work in your Repl and when running tests, it's very likely to catastrophically fail if you run your application from the generated `.jar` file.
+
+So to avoid surprises it's better to always use `io/resource` which works in all scenarios.
 
 ## Design goals
 
