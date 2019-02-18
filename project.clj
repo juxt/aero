@@ -6,7 +6,8 @@
   :license {:name "The MIT License"
             :url "http://opensource.org/licenses/MIT"}
 
-  :plugins [[lein-shell "0.5.0"]]
+  :plugins [[lein-shell "0.5.0"]
+            [lein-cloverage "1.0.13"]]
 
   :aliases {"test-all" ["do" ["test"] ["shell" "./lumo-test"]]}
   :profiles
