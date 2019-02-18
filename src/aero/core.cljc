@@ -128,17 +128,6 @@
   [opts tag values]
   (apply merge values))
 
-(defn- get-in-ref
-  [config]
-  (letfn [(get-in-conf [m]
-            (postwalk
-             (fn [v]
-               (if-not (contains? (meta v) :ref)
-                 v
-                 (get-in-conf (get-in config v))))
-             m))]
-    (get-in-conf config)))
-
 #?(:clj
    (defn relative-resolver [source include]
      (let [fl
