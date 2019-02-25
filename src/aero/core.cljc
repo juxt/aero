@@ -85,28 +85,26 @@
         (contains? value :default) (get value :default)
         :otherwise nil))
 
+(defn expand-set-keys [m]
+  (reduce-kv (fn [m k v]
+               (if (set? k)
+                 (reduce #(assoc %1 %2 v) m k)
+                 (assoc m k v))) {} m))
+
 (defmethod reader 'hostname
   [{:keys [hostname]} tag value]
   (let [hostn (or hostname #?(:clj (env "HOSTNAME")
                               :cljs (os/hostname)))]
-    (or
-     (some (fn [[k v]]
-             (when (or (= k hostn)
-                       (and (set? k) (contains? k hostn)))
-               v))
-           value)
-     (get value :default))))
+    (let [value (expand-set-keys value)]
+      (get value hostn
+        (get value :default)))))
 
 (defmethod reader 'user
   [{:keys [user]} tag value]
   (let [user (or user (env "USER"))]
-    (or
-     (some (fn [[k v]]
-             (when (or (= k user)
-                       (and (set? k) (contains? k user)))
-               v))
-           value)
-     (get value :default))))
+    (let [value (expand-set-keys value)]
+      (get value user
+        (get value :default)))))
 
 (defmethod reader 'include
   [{:keys [resolver source] :as opts} tag value]
