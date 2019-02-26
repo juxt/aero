@@ -192,3 +192,7 @@
   (let [before-call-count @network-call-count
         config (read-config "test/aero/config.edn")]
     (is (= (inc before-call-count) @network-call-count))))
+
+(deftest falsey-user-return-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= nil (config :falsey-user-return)))))
