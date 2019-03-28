@@ -30,4 +30,7 @@
 
  :key-part :b
  :refer-me {:a {:b {1234 :sentinel}}}
- :complex-ref #ref [:refer-me :a #ref [:key-part] #ref [:long]]}
+ :complex-ref #ref [:refer-me :a #ref [:key-part] #ref [:long]]
+
+ :falsey-user-return #user {#{#env "USER"} nil
+                            :default 10}}
