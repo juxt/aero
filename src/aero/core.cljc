@@ -29,7 +29,6 @@
     :else
     (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))))
 
-
 (defn- env [s]
   #?(:clj (System/getenv (str s)))
   #?(:cljs (aget js/process.env s)))
