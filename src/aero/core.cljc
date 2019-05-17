@@ -1,22 +1,17 @@
 ;; Copyright © 2015-2017, JUXT LTD.
 
 (ns aero.core
-  #?(:clj (:require
-           [clojure.edn :as edn]
-           [clojure.string :refer [trim]]
-           [clojure.walk :refer [walk postwalk]]
-           [clojure.java.io :as io]
-           [clojure.java.shell :as sh]
-           [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]))
-  #?(:clj (:import (java.io StringReader)))
-  #?(:cljs (:require [cljs.tools.reader :as edn]
-                     [goog.string :as gstring]
-                     goog.string.format
-                     [clojure.walk :refer [walk postwalk]]
-                     [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]
-                     ["os" :as os]
-                     ["fs" :as fs]
-                     ["path" :as path])))
+  (:require
+    [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]
+    [clojure.walk :refer [walk postwalk]]
+    #?(:clj [clojure.edn :as edn]
+       :cljs [cljs.tools.reader :as edn])
+    #?@(:clj [[clojure.java.io :as io]]
+        :cljs [[goog.string :as gstring]
+               goog.string.format
+               ["fs" :as fs]
+               ["path" :as path] ["os" :as os]]))
+  #?(:clj (:import (java.io StringReader))))
 
 (declare read-config)
 
