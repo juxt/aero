@@ -148,15 +148,17 @@
                        include)]
        (if (string? include)
          (relative-resolver source include)
-         include))))
+         include)))
+   :cljs
+   (defn adaptive-resolver [source include]
+     (if (path/isAbsolute include)
+       include
+       (path/join source ".." include))))
+
 
 (def default-opts
   {:profile :default
-   :resolver #?(:clj adaptive-resolver
-                :cljs (fn [source include]
-                        (if (path/isAbsolute include)
-                          include
-                          (path/join source ".." include))))})
+   :resolver adaptive-resolver})
 
 ;; The rationale for deferreds is to realise some values after the
 ;; config has been read. This allows certain expensive operations to
