@@ -197,3 +197,9 @@
 (deftest falsey-user-return-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= nil (config :falsey-user-return)))))
+
+#?(:clj
+   (deftest ref-in-set-test
+     (is (= #{10} (:bar
+                    (read-config (java.io.StringReader.
+                                   "{:foo 10 :bar #{#ref [:foo]}}")))))))
