@@ -31,19 +31,19 @@
     :else
     (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))))
 
-(defn- env [s]
+(defn- get-env [s]
   #?(:clj (System/getenv (str s)))
   #?(:cljs (gobj/get js/process.env s)))
 
 (defmethod reader 'env
   [opts tag value]
-  (env value))
+  (get-env value))
 
 (defmethod reader 'envf
   [opts tag value]
   (let [[fmt & args] value]
     (apply #?(:clj format :cljs gstring/format) fmt
-           (map #(str (env (str %))) args))))
+           (map #(str (get-env (str %))) args))))
 
 (defmethod reader 'prop
    [opts tag value]
@@ -339,7 +339,7 @@
 
 (defmethod eval-tagged-literal 'user
   [tl {:keys [user] :as opts} env ks]
-  (expand-case (or user (aero.core/env "USER"))
+  (expand-case (or user (get-env "USER"))
                tl opts env ks))
 
 (defmethod eval-tagged-literal 'or
