@@ -2,7 +2,6 @@
 
 (ns aero.core
   (:require
-    [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]
     [clojure.walk :refer [walk postwalk]]
     #?@(:clj [[clojure.edn :as edn]]
         :cljs [[cljs.tools.reader.edn :as edn]
@@ -51,10 +50,6 @@
    #?(:clj (System/getProperty (str value))
       :cljs nil))
 
-(defmethod reader 'or
-  [opts tag value]
-  (first (filter some? value)))
-
 (defmethod reader 'long
   [opts tag value]
   #?(:clj (Long/parseLong (str value)))
@@ -76,33 +71,6 @@
   #?(:clj (Boolean/parseBoolean (str value)))
   #?(:cljs (= "true" (.toLowerCase (str value)))))
 
-(defmethod reader 'profile
-  [{:keys [profile]} tag value]
-  (cond (contains? value profile) (get value profile)
-        (contains? value :default) (get value :default)
-        :otherwise nil))
-
-(defn expand-set-keys [m]
-  (reduce-kv (fn [m k v]
-               (if (set? k)
-                 (reduce #(assoc %1 %2 v) m k)
-                 (assoc m k v))) {} m))
-
-(defmethod reader 'hostname
-  [{:keys [hostname]} tag value]
-  (let [hostn (or hostname #?(:clj (env "HOSTNAME")
-                              :cljs (os/hostname)))]
-    (let [value (expand-set-keys value)]
-      (get value hostn
-        (get value :default)))))
-
-(defmethod reader 'user
-  [{:keys [user]} tag value]
-  (let [user (or user (env "USER"))]
-    (let [value (expand-set-keys value)]
-      (get value user
-        (get value :default)))))
-
 (defmethod reader 'include
   [{:keys [resolver source] :as opts} tag value]
   (read-config
@@ -122,17 +90,6 @@
 (defmethod reader 'merge
   [opts tag values]
   (apply merge values))
-
-(defn- get-in-ref
-  [config]
-  (letfn [(get-in-conf [m]
-            (postwalk
-             (fn [v]
-               (if-not (contains? (meta v) :ref)
-                 v
-                 (get-in-conf (get-in config v))))
-             m))]
-    (get-in-conf config)))
 
 #?(:clj
    (defn relative-resolver [source include]
@@ -191,166 +148,281 @@
   [config]
   (postwalk (fn [x] (if (instance? Deferred x) @(:delegate x) x)) config))
 
-(defrecord TagWrapper
-  [tag value])
-
-(defn- tag-wrapper
-  "Call from :default of clojure.edn to wrap all tags it encounters & cannot handle itself.
-   TODO: Anything special needed to support a mirror of dynamic var related to *tags*?"
-  [tag value]
-  (->TagWrapper tag value))
-
-(defn- tag-wrapper?
-  [x]
-  (= (type x) TagWrapper))
-
-(defn- tag-wrapper-of?
-  [x tag]
-  (and (tag-wrapper? x)
-       (= (:tag x) tag)))
-
-(defn- tag-wrapper-of-ref?
-  [x]
-  (tag-wrapper-of? x 'ref))
-
-(defn- resolve-tag-wrappers
-  [tagged-config tag-fn]
+(defn- ref-meta-to-tagged-literal
+  [config]
   (postwalk
-    (fn [x]
-      (if (tag-wrapper? x)
-        (tag-fn (:tag x) (:value x))
-        x))
-    tagged-config))
-(defn- ref-meta-to-tag-wrapper
-  [config]
-  (letfn [(get-in-conf [m]
-            (postwalk
-              (fn [v]
-                (if-not (contains? (meta v) :ref)
-                  v
-                  (tag-wrapper 'ref v)))
-              m))]
-    (get-in-conf config)))
+    (fn [v]
+      (cond
+        (tagged-literal? v)
+        (tagged-literal (:tag v) (ref-meta-to-tagged-literal (:form v)))
 
-(defn pathify
-  "Return a list of tuples. Each tuple will be of a key-path (similar to what get-in takes) and the value at that point.
-  NOTE: get-in will not necessarily work on the data structure as get-in doesn't work on lists.
-  NOTE: Has a special case for tags (could this be removed?) (tag-kvs)
-  NOTE: May have a limit due to recursion not being in the tail position."
-  ([f x] (pathify f (f) x))
-  ([f pk x]
-   (if-some [kvs (cond
-                   (map? x)
-                   x
-                   (sequential? x)
-                   (map-indexed vector x))]
-     (conj
-       (mapcat
-         (fn [[k v]]
-           (pathify f (f pk k) v))
-         kvs)
-       [pk x])
-     [[pk x]])))
+        (contains? (meta v) :ref)
+        (tagged-literal 'ref v)
 
-(defn shorter-variations
-  "Given a sequence '(1 2 3) return a sequence of all shorter
-  possible sequences: '((1 2) (1))"
-  [xs]
-  (loop [r '()
-         ys (butlast (seq xs))]
-    (if (seq ys)
-      (recur (conj r ys)
-             (butlast ys))
-      r)))
+        :else
+        v))
+    config))
 
-(defn ref-dependency
-  [ref*]
-  (:value ref*))
-
-(defn ref-dependencies
-  "Recursively checks a ref for nested dependencies"
-  [ref*]
-  (let [nested-deps (sequence
-                      (comp (filter tag-wrapper-of-ref?)
-                            (map :value))
-                      (:value ref*))]
-    (concat
-      (when-some [r (ref-dependency ref*)] [r])
-      (when (seq nested-deps)
-        (concat nested-deps
-                (->> nested-deps
-                     (mapcat ref-dependencies)))))))
-
-(defn config->ref-graph
-  [config]
-  (reduce
-    (fn [graph [k v]]
-      (as-> graph %
-        (reduce (fn [acc sk] (dep/depend acc sk k)) % (shorter-variations k))
-        (reduce (fn [acc sk] (dep/depend acc k sk)) % (shorter-variations (:value v)))
-        (reduce (fn [acc d] (dep/depend acc k d)) % (ref-dependencies v))))
-    (dep/graph)
-    (filter
-      (comp tag-wrapper-of-ref? second)
-      (pathify conj [] config))))
-
-(defn resolve-refs
-  "Resolves refs & any necessary tags in order to do it's job"
-  [config resolve-fn]
-  (reduce
-    (fn [acc ks]
-      (let [resolved-ks (map
-                          (fn [x]
-                            ;; if there's a sub-ref here, it should already be
-                            ;; a value due to recursive deps being resolved for
-                            ;; us
-                            (if (tag-wrapper-of-ref? x)
-                              (get-in acc (ref-dependency x))
-                              x))
-                          ks)
-            b (get-in acc resolved-ks)]
-        (cond
-          (tag-wrapper-of-ref? b)
-          (assoc-in acc resolved-ks (get-in acc (ref-dependency b)))
-          (tag-wrapper? b)
-          (assoc-in acc
-                    resolved-ks
-                    (resolve-fn (:tag b)
-                                (resolve-tag-wrappers (:value b) resolve-fn)))
-          :else
-          acc)))
-    config
-    (dep/topo-sort (config->ref-graph config))))
-
-(defn- read-pr-into-tag-wrapper
+(defn- read-pr-into-tagged-literal
   [pr]
-  (ref-meta-to-tag-wrapper
+  (ref-meta-to-tagged-literal
     (edn/read
       {:eof nil
        ;; Make a wrapper of all known readers, this permits mixing of
        ;; post-processed tags with declared data readers
        :readers (into
                   {}
-                  (map (fn [[k v]] [k #(tag-wrapper k %)])
+                  (map (fn [[k v]] [k #(tagged-literal k %)])
                        (merge default-data-readers *data-readers*)))
-       :default tag-wrapper}
+       :default tagged-literal}
       pr)))
 
-(defn read-config-into-tag-wrapper
+(defn read-config-into-tagged-literal
   [source]
   #?(:clj
      (with-open [pr (-> source io/reader clojure.lang.LineNumberingPushbackReader.)]
        (try
-         (read-pr-into-tag-wrapper pr)
+         (read-pr-into-tagged-literal pr)
          (catch Exception e
            (let [line (.getLineNumber pr)]
              (throw (ex-info (#?(:clj format :cljs gstring/format) "Config error on line %s" line) {:line line} e))))))
      :cljs
-     (read-pr-into-tag-wrapper
+     (read-pr-into-tagged-literal
        (source-logging-push-back-reader
          (fs/readFileSync source "utf-8")
          1
          source))))
+
+;; Queue utilities
+(defn- queue
+  [& xs]
+  (into #?(:clj (clojure.lang.PersistentQueue/EMPTY)
+           :cljs cljs.core/PersistentQueue.EMPTY)
+        xs))
+
+(defn- qu
+  [coll]
+  (apply queue coll))
+
+(defn- reassemble
+  [this queue]
+  ((get (meta this) `reassemble) this queue))
+
+(defn- kv-seq
+  [x]
+  (cond
+    (record? x)
+    x
+
+    (map? x)
+    (with-meta
+      (or (seq x) [])
+      {`reassemble (fn [_ queue]
+                     (into (empty x) queue))})
+
+    (coll? x)
+    (with-meta (map-indexed (fn [idx v]
+                              [idx v])
+                            x)
+               {`reassemble (fn [_ queue]
+                              (into (empty x)
+                                    (map second (sort-by first queue))))})
+    ;; Scalar value
+    :else
+    nil))
+
+;; An expansion returns a map containing:
+;; incomplete? - Indicating whether the evaluation completed or not
+;; env - The new value of the environment bindings if appropriate
+;; value - The new value for this expansion (may be a tagged-literal which needs to be requeued, or a complete value)
+
+(declare expand)
+(declare expand-coll)
+(declare expand-scalar)
+
+(defn- expand-scalar-repeatedly
+  [x opts env ks]
+  (loop [x x]
+    (let [x (expand-scalar x opts env ks)]
+      (if (and (tagged-literal? (::value x))
+               (not (::incomplete? x)))
+        (recur (::value x))
+        x))))
+
+(defn- expand-keys
+  [m opts env ks]
+  (loop [ks (keys m)
+         m m]
+    ;; Can't use k here as `false` and `nil` are valid ks
+    (if (seq ks)
+      (let [{:keys [:aero.core/incomplete? :aero.core/value] :as expansion}
+            (expand (first ks) opts env ks)]
+        (if incomplete?
+          (assoc expansion
+                 ::value
+                 (-> m
+                     ;; Dissoc first, as k may be unchanged
+                     (dissoc (first ks))
+                     (assoc value (get m (first ks)))))
+          (recur (rest ks)
+                 (-> m
+                     ;; Dissoc first, as k may be unchanged
+                     (dissoc (first ks))
+                     (assoc value (get m (first ks)))))))
+      {::value m})))
+
+(defmulti ^:private eval-tagged-literal
+  (fn [tagged-literal opts env ks] (:tag tagged-literal)))
+
+(defn- rewrap
+  [tl]
+  (fn [v]
+    (tagged-literal (:tag tl) v)))
+
+(defmethod eval-tagged-literal :default
+  [tl opts env ks]
+  (let [{:keys [:aero.core/incomplete?] :as expansion}
+        (expand (:form tl) opts env ks)]
+    (if incomplete?
+      (update expansion ::value (rewrap tl))
+      (update expansion ::value #(reader opts (:tag tl) %)))))
+
+(defmethod eval-tagged-literal 'ref
+  [tl opts env ks]
+  (let [{:keys [:aero.core/incomplete? :aero.core/env :aero.core/value]
+         :or {env env}
+         :as expansion} (expand (:form tl) opts env ks)]
+    (if (or incomplete? (not (contains? env value)))
+      (-> expansion
+          (assoc ::incomplete? true)
+          (update ::value (rewrap tl)))
+      (assoc expansion ::value (get env value)))))
+
+(defn- expand-set-keys [m]
+  (reduce-kv
+    (fn [m k v]
+      (if (set? k)
+        (reduce #(assoc %1 %2 v) m k)
+        (assoc m k v))) {} m))
+
+(defn- expand-case
+  [case-value tl opts env ks]
+  (let [{m-incomplete? :aero.core/incomplete?
+         m :aero.core/value
+         :as m-expansion}
+        (expand-scalar-repeatedly (:form tl) opts env ks)
+        
+        {ks-incomplete? :aero.core/incomplete?
+         :keys [:aero.core/value] :as ks-expansion}
+        (when-not m-incomplete?
+          (expand-keys m opts env ks))]
+    (if (or m-incomplete? ks-incomplete?)
+      (update (or m-expansion ks-expansion) ::value (rewrap tl))
+      (let [set-keys-expanded (expand-set-keys value)]
+        (expand (get set-keys-expanded case-value
+                     (get set-keys-expanded :default))
+                opts env ks)))))
+
+(defmethod eval-tagged-literal 'profile 
+  [tl opts env ks]
+  (expand-case (:profile opts) tl opts env ks))
+
+(defmethod eval-tagged-literal 'hostname
+  [tl {:keys [hostname] :as opts} env ks]
+  (expand-case (or hostname #?(:clj (env "HOSTNAME")
+                               :cljs (os/hostname)))
+               tl opts env ks))
+
+(defmethod eval-tagged-literal 'user
+  [tl {:keys [user] :as opts} env ks]
+  (expand-case (or user (aero.core/env "USER"))
+               tl opts env ks))
+
+(defmethod eval-tagged-literal 'or
+  [tl opts env ks]
+  (let [{:keys [:aero.core/incomplete? :aero.core/value] :as expansion}
+        (expand-scalar-repeatedly (:form tl) opts env ks)]
+    (if incomplete?
+      (update expansion ::value rewrap)
+      (loop [[x & xs] value]
+        (let [{:keys [:aero.core/incomplete? :aero.core/value]
+               :as expansion}
+              (expand x opts env ks)]
+          (cond
+            ;; We skipped a value, we cannot be sure whether it will be true in the future, so return with the remainder to check (including the skipped)
+            incomplete?
+            (tagged-literal (:tag tl) (cons value xs))
+
+            ;; We found a value, and it's truthy, and we aren't skipped (because order), we successfully got one!
+            value
+            expansion
+
+            ;; Run out of things to check
+            (not (seq xs))
+            nil
+
+            :else
+            ;; Falsey value, but not skipped, recur with the rest to try
+            (recur xs)))))))
+
+(defn- expand-scalar
+  [x opts env ks]
+  (if (tagged-literal? x)
+    (eval-tagged-literal x opts env (conj ks :form))
+    {::value x
+     ::env (assoc env ks x)}))
+
+(def ^:private ^:dynamic *max-skips* 1)
+
+(defn- expand-coll
+  [x opts env ks]
+  (let [steps (kv-seq x)]
+    (loop [q (qu steps)
+           ss []
+           env env
+           skip-count {}]
+      (if-let [[k v :as item] (peek q)]
+        (let [{; Ignore env from k expansion because values from k are not
+               ; stored in env.  This decision may need to be revised in the
+               ; future if funky keys such as those which can alter alternative
+               ; parts of the map are wanted.
+
+               ;env ::env
+               k ::value
+               k-incomplete? ::incomplete?
+               :or {env env}}
+              (expand k opts env ks)
+
+              {:keys [aero.core/env aero.core/value aero.core/incomplete?]
+               :or {env env}}
+              (when-not k-incomplete?
+                (expand v opts env (conj ks k)))]
+          (if (or k-incomplete? incomplete?)
+            (if (<= *max-skips* (get skip-count item 0))
+              (recur (pop q) (conj ss [k value]) env skip-count)
+              (recur (conj (pop q) [k value]) ss env
+                     (update skip-count item (fnil inc 0))))
+            (recur (pop q)
+                   (conj ss [k value])
+                   (assoc env (conj ks k) value)
+                   skip-count)))
+
+        {::value (reassemble steps ss)
+         ::env env
+         ::incomplete? (some #(>= % *max-skips*) (vals skip-count))
+
+         ;; Not used anywhere, but useful for debugging
+         ::_ss ss}))))
+
+(defn- expand
+  [x opts env ks]
+  (if (and (not (record? x)) (coll? x))
+    (expand-coll x opts env ks)
+    (expand-scalar x opts env ks)))
+
+(defn resolve-tagged-literals
+  [wrapped-config opts]
+  (::value (expand wrapped-config opts {} [])))
 
 (defn read-config
   "First argument is a string URL to the file. To read from the
@@ -364,10 +436,8 @@
   :resolver - a function or map used to resolve includes."
   ([source given-opts]
    (let [opts (merge default-opts given-opts {:source source})
-         tag-fn (partial reader opts)
-         wrapped-config (read-config-into-tag-wrapper source)]
+         wrapped-config (read-config-into-tagged-literal source)]
      (-> wrapped-config
-         (resolve-refs tag-fn)
-         (resolve-tag-wrappers tag-fn)
+         (resolve-tagged-literals opts)
          (realize-deferreds))))
   ([source] (read-config source {})))
