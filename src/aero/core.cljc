@@ -4,8 +4,10 @@
   (:require
     [aero.vendor.dependency.v0v2v0.com.stuartsierra.dependency :as dep]
     [clojure.walk :refer [walk postwalk]]
-    #?(:clj [clojure.edn :as edn]
-       :cljs [cljs.tools.reader :as edn])
+    #?@(:clj [[clojure.edn :as edn]]
+        :cljs [[cljs.tools.reader.edn :as edn]
+               [cljs.tools.reader :refer [default-data-readers *data-readers*]]
+               [cljs.tools.reader.reader-types :refer [source-logging-push-back-reader]]])
     #?@(:clj [[clojure.java.io :as io]]
         :cljs [[goog.string :as gstring]
                goog.string.format
@@ -21,11 +23,11 @@
   [_ tag value]
   (cond
     ;; Given tagification, we now must check data-readers
-    ;; TODO: Only Clojure for now, but also ClojureScript once *data-readers* are supported in lumo
-    (contains? #?(:clj *data-readers* :cljs edn/*data-readers*) tag)
-    ((get #?(:clj *data-readers* :cljs edn/*data-readers*) tag) value)
-    #?(:clj (contains? default-data-readers tag))
-    #?(:clj ((get default-data-readers tag) value))
+    (contains? *data-readers* tag)
+    ((get *data-readers* tag) value)
+
+    (contains? default-data-readers tag)
+    ((get default-data-readers tag) value)
     :else
     (throw (ex-info (#?(:clj format :cljs gstring/format) "No reader for tag %s" tag) {:tag tag :value value}))))
 
@@ -308,38 +310,35 @@
     config
     (dep/topo-sort (config->ref-graph config))))
 
+(defn- read-pr-into-tag-wrapper
+  [pr]
+  (ref-meta-to-tag-wrapper
+    (edn/read
+      {:eof nil
+       ;; Make a wrapper of all known readers, this permits mixing of
+       ;; post-processed tags with declared data readers
+       :readers (into
+                  {}
+                  (map (fn [[k v]] [k #(tag-wrapper k %)])
+                       (merge default-data-readers *data-readers*)))
+       :default tag-wrapper}
+      pr)))
+
 (defn read-config-into-tag-wrapper
   [source]
   #?(:clj
      (with-open [pr (-> source io/reader clojure.lang.LineNumberingPushbackReader.)]
        (try
-         (ref-meta-to-tag-wrapper
-          (edn/read
-           {:eof nil
-            ;; Make a wrapper of all known readers, this permits mixing of
-            ;; post-processed tags with declared data readers
-            :readers (into
-                      {}
-                      (map (fn [[k v]] [k #(tag-wrapper k %)])
-                           (merge default-data-readers *data-readers*)))
-            :default tag-wrapper}
-           pr))
+         (read-pr-into-tag-wrapper pr)
          (catch Exception e
            (let [line (.getLineNumber pr)]
              (throw (ex-info (#?(:clj format :cljs gstring/format) "Config error on line %s" line) {:line line} e))))))
      :cljs
-     (binding [edn/*default-data-reader-fn* tag-wrapper
-               edn/*data-readers* (into {}
-                                        (map (fn [[k v]] [k #(tag-wrapper k %)])
-                                             edn/*data-readers*))]
-       (ref-meta-to-tag-wrapper
-        (edn/read-string
-         {:eof nil
-          ;; Make a wrapper of all known readers, this permits mixing of
-          ;; post-processed tags with declared data readers
-          :readers {}
-          :default tag-wrapper}
-         (fs/readFileSync source "utf-8"))))))
+     (read-pr-into-tag-wrapper
+       (source-logging-push-back-reader
+         (fs/readFileSync source "utf-8")
+         1
+         source))))
 
 (defn read-config
   "First argument is a string URL to the file. To read from the
