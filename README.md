@@ -101,7 +101,7 @@ Use `#env` to reference an environment variable.
 {:database-uri #env DATABASE_URI}
 ```
 
-It is considered bad practice to use environment variables for passwords and other confidential information. This is because it is very easy for anyone to read a process's environment (e.g. via `ps -ef`). Environment variables are also commonly dumped out in a debugging sessions. Instead you should use `#include` - see [here](#hide-passwords-in-local-private-files).
+It is considered bad practice to use environment variables for passwords and other confidential information. This is because it is very easy to leak a process's environment (e.g. via `ps -ef` or to your application monitoring tool). Instead you should use `#include` - see [here](#hide-passwords-in-local-private-files).
 
 ### envf
 
