@@ -109,7 +109,9 @@
 
 #?(:clj
    (defn resource-resolver [_ include]
-     (io/resource include)))
+     (or
+       (io/resource include)
+       (StringReader. (pr-str {:aero/missing-include include})))))
 
 #?(:clj
    (defn root-resolver [_ include]
