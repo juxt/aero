@@ -6,7 +6,9 @@
     #?@(:clj [[clojure.edn :as edn]]
         :cljs [[cljs.tools.reader.edn :as edn]
                [cljs.tools.reader :refer [default-data-readers *data-readers*]]
-               [cljs.tools.reader.reader-types :refer [source-logging-push-back-reader]]])
+               [cljs.tools.reader.reader-types
+                :refer [source-logging-push-back-reader]
+                :as tools.reader.reader-types]])
     #?@(:clj [[clojure.java.io :as io]]
         :cljs [[goog.string :as gstring]
                goog.string.format
@@ -122,9 +124,13 @@
          include)))
    :cljs
    (defn adaptive-resolver [source include]
-     (if (path/isAbsolute include)
-       include
-       (path/join source ".." include))))
+     (let [fl (if (path/isAbsolute include)
+                include
+                (path/join source ".." include))]
+       (if (fs/existsSync fl)
+         fl
+         (source-logging-push-back-reader
+           (pr-str {:aero/missing-include include}))))))
 
 
 (def default-opts
@@ -188,10 +194,18 @@
              (throw (ex-info (#?(:clj format :cljs gstring/format) "Config error on line %s" line) {:line line} e))))))
      :cljs
      (read-pr-into-tagged-literal
-       (source-logging-push-back-reader
-         (fs/readFileSync source "utf-8")
-         1
-         source))))
+       (cond
+         (tools.reader.reader-types/source-logging-reader? source)
+         source
+
+         (implements? tools.reader.reader-types/Reader source)
+         (source-logging-push-back-reader source)
+
+         :else
+         (source-logging-push-back-reader
+           (fs/readFileSync source "utf-8")
+           1
+           source)))))
 
 ;; Queue utilities
 (defn- queue

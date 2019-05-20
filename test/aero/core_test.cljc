@@ -158,6 +158,10 @@
                                            :valid-file   (io/resource "aero/valid.edn")}}))
        (is (:aero/missing-include (read-config source {:profile :file-does-not-exist}))))))
 
+(deftest missing-include-test
+  (let [source "test/aero/includes.edn"]
+    (is (:aero/missing-include (read-config source {:profile :file-does-not-exist})))))
+
 #?(:clj
    (deftest dangling-ref-test
      (is
