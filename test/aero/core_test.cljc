@@ -13,11 +13,11 @@
                      [goog.string :as gstring]
                      goog.string.format)))
 
-(def network-call-count (atom 0))
-
 (defn env [s]
   #?(:clj (System/getenv (str s)))
   #?(:cljs (gobj/get js/process.env s)))
+
+(def network-call-count (atom 0))
 
 (defmethod reader 'expensive-network-call
    [_ tag value]
