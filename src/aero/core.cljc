@@ -289,13 +289,17 @@
 
 (defmethod eval-tagged-literal 'ref
   [tl opts env ks]
-  (let [{:keys [:aero.core/incomplete? :aero.core/env :aero.core/value]
+  (let [{:keys [:aero.core/incomplete? :aero.core/env :aero.core/value
+                :aero.core/incomplete]
          :or {env env}
          :as expansion} (expand (:form tl) opts env ks)]
     (if (or incomplete? (not (contains? env value)))
       (-> expansion
           (assoc ::incomplete? true)
-          (update ::value (rewrap tl)))
+          (update ::value (rewrap tl))
+          (assoc ::incomplete (or incomplete
+                                  {::path (pop ks)
+                                   ::value tl})))
       (assoc expansion ::value (get env value)))))
 
 (defn- expand-set-keys [m]
@@ -380,7 +384,8 @@
     (loop [q (qu steps)
            ss []
            env env
-           skip-count {}]
+           skip-count {}
+           skipped #{}]
       (if-let [[k v :as item] (peek q)]
         (let [{; Ignore env from k expansion because values from k are not
                ; stored in env.  This decision may need to be revised in the
@@ -390,27 +395,40 @@
                ;env ::env
                k ::value
                k-incomplete? ::incomplete?
-               :or {env env}}
-              (expand k opts env ks)
+               env :aero.core/env
+               :or {env env}
+               :as k-expansion}
+              (expand k opts env (conj ks k ::k))
 
               {:keys [aero.core/env aero.core/value aero.core/incomplete?]
-               :or {env env}}
+               :or {env env}
+               :as expansion}
               (when-not k-incomplete?
                 (expand v opts env (conj ks k)))]
           (if (or k-incomplete? incomplete?)
             (if (<= *max-skips* (get skip-count item 0))
-              (recur (pop q) (conj ss [k value]) env skip-count)
-              (recur (conj (pop q) [k value]) ss env
-                     (update skip-count item (fnil inc 0))))
+              (recur (pop q)
+                     (conj ss [k value])
+                     env
+                     (update skip-count item (fnil inc 0))
+                     (conj skipped (if k-incomplete?
+                                     k-expansion
+                                     expansion)))
+              (recur (conj (pop q) [k value])
+                     ss
+                     env
+                     (update skip-count item (fnil inc 0))
+                     skipped))
             (recur (pop q)
                    (conj ss [k value])
                    (assoc env (conj ks k) value)
-                   skip-count)))
+                   skip-count
+                   skipped)))
 
         {::value (reassemble steps ss)
          ::env env
          ::incomplete? (some #(>= % *max-skips*) (vals skip-count))
-
+         ::incomplete (some ::incomplete skipped)
          ;; Not used anywhere, but useful for debugging
          ::_ss ss}))))
 
@@ -420,9 +438,131 @@
     (expand-coll x opts env ks)
     (expand-scalar x opts env ks)))
 
+(defn- assoc-in-kv-seq
+  [x ks v]
+  (let [[k & ks] ks]
+    (let [steps (if (tagged-literal? x)
+                  (with-meta
+                    [[:tag (:tag x)]
+                     [:form (:form x)]]
+                    {`reassemble (fn [this queue]
+                                   (let [{:keys [tag form]} (into {} queue)]
+                                     (tagged-literal tag form)))})
+                  (kv-seq x))]
+      (reassemble
+        steps
+        (map (fn [[stepk stepv :as kv]]
+               (cond
+                 (and (not= (first ks) ::k)
+                      (= stepk k))
+                 (if (seq ks)
+                   [stepk (assoc-in-kv-seq stepv ks v)]
+                   [stepk v])
+
+                 (and (= (first ks) ::k)
+                      (= stepk k))
+                 (if (seq (rest ks))
+                   [(assoc-in-kv-seq stepk (rest ks) v) stepv]
+                   [v stepv])
+
+                 :else
+                 kv))
+             steps)))))
+
+(defn- dissoc-in-kv-seq
+  [x ks]
+  (let [[k & ks] ks]
+    (if
+      (or (not (seq ks))
+          (= [::k] ks))
+      (let [steps (kv-seq x)]
+        (reassemble
+          steps
+          (filter (fn [[stepk stepv :as kv]]
+                    (not= stepk k))
+                  steps)) )
+
+      (let [steps (if (tagged-literal? x)
+                    (with-meta
+                      [[:tag (:tag x)]
+                       [:form (:form x)]]
+                      {`reassemble (fn [this queue]
+                                     (let [{:keys [tag form]} (into {} queue)]
+                                       (tagged-literal tag form)))})
+                    (kv-seq x))]
+        (reassemble
+          steps
+          (map (fn [[stepk stepv :as kv]]
+                 (cond
+                   (and (not= (first ks) ::k)
+                        (= stepk k))
+                   (if (seq ks)
+                     [stepk (dissoc-in-kv-seq stepv ks)]
+                     [stepk stepv])
+
+                   (and (= (first ks) ::k)
+                        (= stepk k))
+                   (if (seq (rest ks))
+                     [(dissoc-in-kv-seq stepk (rest ks)) stepv]
+                     [stepk stepv])
+
+                   :else
+                   kv))
+               steps))))))
+
 (defn resolve-tagged-literals
   [wrapped-config opts]
-  (::value (expand wrapped-config opts {} [])))
+  (let [{:keys [:aero.core/incomplete?
+                :aero.core/value]
+         :as expansion}
+        (loop [attempts 0
+               x {::value wrapped-config
+                  ::incomplete? true}]
+          (let [{:keys [:aero.core/incomplete]
+                 :as expansion}
+                (expand (::value x)
+                        opts
+                        (::env x {})
+                        [])]
+            (cond
+              (not (::incomplete? x))
+              expansion
+
+              (and (> attempts 0)
+                   (= (-> incomplete ::value :tag) 'ref))
+              (do
+                (binding [*out* #?(:clj *err*
+                                   :cljs *out*)]
+                  (println "WARNING: Unable to resolve"
+                           (str \" (pr-str (-> incomplete ::value)) \")
+                           "at"
+                           (pr-str (-> incomplete ::path))))
+                (recur
+                  0
+                  (if (= ::k (-> incomplete ::path last))
+                    (update expansion
+                            ::value
+                            dissoc-in-kv-seq
+                            (-> incomplete ::path))
+                    (update expansion
+                            ::value
+                            assoc-in-kv-seq
+                            (-> incomplete ::path)
+                            nil))))
+
+              (> attempts 1)
+              (throw (ex-info "Max attempts exhausted"
+                              {:progress x
+                               :attempts attempts}))
+
+              :else
+              (recur (if (= x expansion)
+                       (inc attempts)
+                       0)
+                     expansion))))]
+    (if incomplete?
+      (throw (ex-info "Incomplete resolution" expansion))
+      value)))
 
 (defn read-config
   "First argument is a string URL to the file. To read from the
