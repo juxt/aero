@@ -19,22 +19,25 @@
   "Implementation detail.  DO NOT USE.  Will be private once out of alpha."
   [x]
   (cond
-    (record? x)
-    x
-
-    (map? x)
+    (and (map? x) (not (record? x)))
     (with-meta
-      (or (seq x) [])
-      {`reassemble (fn [_ queue]
-                     (into (empty x) queue))})
+      (into [] x)
+      {`reassemble (fn [_ queue] (into {} queue))})
 
-    (coll? x)
-    (with-meta (map-indexed (fn [idx v]
-                              [idx v])
-                            x)
+    (set? x)
+    (with-meta (map-indexed (fn [idx v] [idx v]) x)
                {`reassemble (fn [_ queue]
-                              (into (empty x)
-                                    (map second (sort-by first queue))))})
+                              (set (map second queue)))})
+
+    (vector? x)
+    (with-meta (map-indexed (fn [idx v] [idx v]) x)
+               {`reassemble (fn [_ queue]
+                              (mapv second (sort-by first queue)))})
+
+    (list? x)
+    (with-meta (map-indexed (fn [idx v] [idx v]) x)
+               {`reassemble (fn [_ queue]
+                              (apply list (map second (sort-by first queue))))})
     ;; Scalar value
     :else
     nil))
@@ -125,7 +128,7 @@
   "Expand value x.  Dispatches on whether it's a scalar or collection.  If it's
   a collection it will expand the elements of the collection."
   [x opts env ks]
-  (if (and (not (record? x)) (coll? x))
+  (if (or (and (map? x) (not (record? x))) (set? x) (list? x) (vector? x))
     (expand-coll x opts env ks)
     (expand-scalar x opts env ks)))
 
