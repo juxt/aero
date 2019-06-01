@@ -2,8 +2,12 @@
 
 (ns aero.core
   (:require
+    [aero.alpha.core :refer
+     [expand expand-scalar-repeatedly expand-case eval-tagged-literal
+      reassemble kv-seq]]
     [clojure.walk :refer [walk postwalk]]
-    #?@(:clj [[clojure.edn :as edn]]
+    #?@(:clj [[clojure.edn :as edn]
+              [aero.impl.macro :as macro]]
         :cljs [[cljs.tools.reader.edn :as edn]
                [cljs.tools.reader :refer [default-data-readers *data-readers*]]
                [cljs.tools.reader.reader-types
@@ -15,8 +19,12 @@
                [goog.object :as gobj]
                ["fs" :as fs]
                ["path" :as path] ["os" :as os]]))
-  #?(:clj (:import (java.io StringReader))))
+  #?(:clj (:import (java.io StringReader)))
+  #?(:cljs (:require-macros [aero.impl.macro :as macro])))
 
+(defrecord Deferred [delegate])
+
+(macro/usetime
 (declare read-config)
 
 (defmulti reader (fn [opts tag value] tag))
@@ -147,11 +155,6 @@
 ;; all environments which don't need them, and probably won't be
 ;; possible to decrypt, therefore you want to defer until needed).
 
-(defrecord Deferred [delegate])
-
-(defmacro deferred [& expr]
-   `(->Deferred (delay ~@expr)))
-
 (defn- realize-deferreds
   [config]
   (postwalk (fn [x] (if (instance? Deferred x) @(:delegate x) x)) config))
@@ -209,87 +212,6 @@
            1
            source)))))
 
-;; Queue utilities
-(defn- queue
-  [& xs]
-  (into #?(:clj (clojure.lang.PersistentQueue/EMPTY)
-           :cljs cljs.core/PersistentQueue.EMPTY)
-        xs))
-
-(defn- qu
-  [coll]
-  (apply queue coll))
-
-(defn- reassemble
-  [this queue]
-  ((get (meta this) `reassemble) this queue))
-
-(defn- kv-seq
-  [x]
-  (cond
-    (record? x)
-    x
-
-    (map? x)
-    (with-meta
-      (or (seq x) [])
-      {`reassemble (fn [_ queue]
-                     (into (empty x) queue))})
-
-    (coll? x)
-    (with-meta (map-indexed (fn [idx v]
-                              [idx v])
-                            x)
-               {`reassemble (fn [_ queue]
-                              (into (empty x)
-                                    (map second (sort-by first queue))))})
-    ;; Scalar value
-    :else
-    nil))
-
-;; An expansion returns a map containing:
-;; incomplete? - Indicating whether the evaluation completed or not
-;; env - The new value of the environment bindings if appropriate
-;; value - The new value for this expansion (may be a tagged-literal which needs to be requeued, or a complete value)
-
-(declare expand)
-(declare expand-coll)
-(declare expand-scalar)
-
-(defn- expand-scalar-repeatedly
-  [x opts env ks]
-  (loop [x x]
-    (let [x (expand-scalar x opts env ks)]
-      (if (and (tagged-literal? (::value x))
-               (not (::incomplete? x)))
-        (recur (::value x))
-        x))))
-
-(defn- expand-keys
-  [m opts env ks]
-  (loop [ks (keys m)
-         m m]
-    ;; Can't use k here as `false` and `nil` are valid ks
-    (if (seq ks)
-      (let [{:keys [:aero.core/incomplete? :aero.core/value] :as expansion}
-            (expand (first ks) opts env ks)]
-        (if incomplete?
-          (assoc expansion
-                 ::value
-                 (-> m
-                     ;; Dissoc first, as k may be unchanged
-                     (dissoc (first ks))
-                     (assoc value (get m (first ks)))))
-          (recur (rest ks)
-                 (-> m
-                     ;; Dissoc first, as k may be unchanged
-                     (dissoc (first ks))
-                     (assoc value (get m (first ks)))))))
-      {::value m})))
-
-(defmulti ^:private eval-tagged-literal
-  (fn [tagged-literal opts env ks] (:tag tagged-literal)))
-
 (defn- rewrap
   [tl]
   (fn [v]
@@ -317,31 +239,6 @@
                                   {::path (pop ks)
                                    ::value tl})))
       (assoc expansion ::value (get env value)))))
-
-(defn- expand-set-keys [m]
-  (reduce-kv
-    (fn [m k v]
-      (if (set? k)
-        (reduce #(assoc %1 %2 v) m k)
-        (assoc m k v))) {} m))
-
-(defn- expand-case
-  [case-value tl opts env ks]
-  (let [{m-incomplete? :aero.core/incomplete?
-         m :aero.core/value
-         :as m-expansion}
-        (expand-scalar-repeatedly (:form tl) opts env ks)
-        
-        {ks-incomplete? :aero.core/incomplete?
-         :keys [:aero.core/value] :as ks-expansion}
-        (when-not m-incomplete?
-          (expand-keys m opts env ks))]
-    (if (or m-incomplete? ks-incomplete?)
-      (update (or m-expansion ks-expansion) ::value (rewrap tl))
-      (let [set-keys-expanded (expand-set-keys value)]
-        (expand (get set-keys-expanded case-value
-                     (get set-keys-expanded :default))
-                opts env ks)))))
 
 (defmethod eval-tagged-literal 'profile 
   [tl opts env ks]
@@ -384,75 +281,6 @@
             :else
             ;; Falsey value, but not skipped, recur with the rest to try
             (recur xs)))))))
-
-(defn- expand-scalar
-  [x opts env ks]
-  (if (tagged-literal? x)
-    (eval-tagged-literal x opts env (conj ks :form))
-    {::value x
-     ::env (assoc env ks x)}))
-
-(def ^:private ^:dynamic *max-skips* 1)
-
-(defn- expand-coll
-  [x opts env ks]
-  (let [steps (kv-seq x)]
-    (loop [q (qu steps)
-           ss []
-           env env
-           skip-count {}
-           skipped #{}]
-      (if-let [[k v :as item] (peek q)]
-        (let [{; Ignore env from k expansion because values from k are not
-               ; stored in env.  This decision may need to be revised in the
-               ; future if funky keys such as those which can alter alternative
-               ; parts of the map are wanted.
-
-               ;env ::env
-               k ::value
-               k-incomplete? ::incomplete?
-               env :aero.core/env
-               :or {env env}
-               :as k-expansion}
-              (expand k opts env (conj ks k ::k))
-
-              {:keys [aero.core/env aero.core/value aero.core/incomplete?]
-               :or {env env}
-               :as expansion}
-              (when-not k-incomplete?
-                (expand v opts env (conj ks k)))]
-          (if (or k-incomplete? incomplete?)
-            (if (<= *max-skips* (get skip-count item 0))
-              (recur (pop q)
-                     (conj ss [k value])
-                     env
-                     (update skip-count item (fnil inc 0))
-                     (conj skipped (if k-incomplete?
-                                     k-expansion
-                                     expansion)))
-              (recur (conj (pop q) [k value])
-                     ss
-                     env
-                     (update skip-count item (fnil inc 0))
-                     skipped))
-            (recur (pop q)
-                   (conj ss [k value])
-                   (assoc env (conj ks k) value)
-                   skip-count
-                   skipped)))
-
-        {::value (reassemble steps ss)
-         ::env env
-         ::incomplete? (some #(>= % *max-skips*) (vals skip-count))
-         ::incomplete (some ::incomplete skipped)
-         ;; Not used anywhere, but useful for debugging
-         ::_ss ss}))))
-
-(defn- expand
-  [x opts env ks]
-  (if (and (not (record? x)) (coll? x))
-    (expand-coll x opts env ks)
-    (expand-scalar x opts env ks)))
 
 (defn- assoc-in-kv-seq
   [x ks v]
@@ -597,3 +425,8 @@
          (resolve-tagged-literals opts)
          (realize-deferreds))))
   ([source] (read-config source {})))
+)
+
+(macro/deftime
+  (defmacro deferred [& expr]
+    `(->Deferred (delay ~@expr))))

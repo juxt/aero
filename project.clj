@@ -10,6 +10,7 @@
             [lein-cloverage "1.0.13"]]
 
   :aliases {"test-all" ["do" ["test"] ["shell" "./lumo-test"]]}
+  :eastwood {:namespaces [aero.core aero.alpha.core]}
   :profiles
   {:provided {:dependencies [[org.clojure/clojure "1.8.0"]]}
    :dev {:plugins [[lein-cljfmt "0.5.7"]

@@ -380,6 +380,48 @@ Aero is a great way to implement [feature toggles](http://martinfowler.com/artic
 
 If at all possible, try to avoid having lots of configuration files and stick with a single file. That way, you're encouraged to keep configuration down to a minimum. Having a single file is also useful because it can be more easily edited, published, emailed, [watched](https://github.com/juxt/dirwatch) for changes. It is generally better to surface complexity than hide it away.
 
+## (Alpha) Define macro tag literals
+
+`aero.alpha.core` defines a new experimental API for tagged literals.
+This API allows you to define tagged literal "macros" similar to macros in Clojure.
+It is intended for use in creating your own conditional constructs like `#profile` and `#or`.
+
+### case-like tag literal
+
+The easiest kind of tagged literal to create is a case-like one.
+A case-like tagged literal is one which takes a map of possible paths to take.
+An example of this in Aero is `#profile`.
+
+Here's how you can define your own version of `#profile`:
+
+```clojure
+(ns myns
+  (:require [aero.alpha.core :as aero.alpha]))
+
+(defmethod aero.alpha/eval-tagged-literal 'profile
+  [tagged-literal opts env ks]
+  (aero.alpha/expand-case (:profile opts) tagged-literal opts env ks))
+```
+
+`eval-tagged-literal` allows you to define macro tagged literals.
+`expand-case` is a function which forms the common behaviour beneath `#user`, `#profile`, etc.
+
+### Other conditional constructs
+
+`#or` is very different from `#profile` in implementation, and doesn't have a convenience function.
+The source for `#or` in `aero.core` is a good example of doing custom partial expansion from a tagged literal.
+
+The primitives you will need to understand are: `aero.alpha.core/expand`, `aero.alpha.core/expand-coll`, `aero.alpha.core/expand-scalar`.
+And helpers: `aero.alpha.core/expand-scalar-repeatedly`.
+These vars have docstrings which explain their specific purpose.
+
+All expand-* functions take parameters `opts`, `env`, and `ks`.
+`opts` are the same `opts` that are passed to `aero.core/read-config`.
+`env` is a map of `ks` to their resolved values in the config, being absent from this map means the value is not yet resolved.
+`ks` is a vector representing the current key path into the location of this tagged literal.
+
+Your implementation of eval-tagged-literal must `assoc` the `ks` into `env` if it is successfully resolved.
+
 ## References
 
 Aero is built on Clojure's [edn](https://github.com/edn-format/edn).
