@@ -111,7 +111,7 @@
 
 (deftest format-test
   (let [config (read-config "test/aero/config.edn")]
-    (is (= (#?(:clj format :cljs gstring/format) "My favorite flavor is %s %s" (str (env "TERM")) :chocolate)
+    (is (= (#?(:clj format :cljs gstring/format) "My favorite flavor is %s %s" (or (env "TERM") "flaa") :chocolate)
            (:flavor-string config)))))
 
 (deftest ref-test
