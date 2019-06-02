@@ -56,7 +56,7 @@
 
 (deftest join-test
   (let [config (read-config "test/aero/config.edn")]
-    (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" (env "TERM"))
+    (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" (str (env "TERM")))
            (:dumb-term config)))
     (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" "smart")
            (:smart-term config)))))
@@ -72,7 +72,7 @@
 
 (deftest envf-test
   (let [config (read-config "test/aero/config.edn")]
-    (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" (env "TERM"))
+    (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" (str (env "TERM")))
            (:dumb-term-envf config)))))
 
 #?(:clj
@@ -111,7 +111,7 @@
 
 (deftest format-test
   (let [config (read-config "test/aero/config.edn")]
-    (is (= (#?(:clj format :cljs gstring/format) "My favorite flavor is %s %s" (env "TERM") :chocolate)
+    (is (= (#?(:clj format :cljs gstring/format) "My favorite flavor is %s %s" (str (env "TERM")) :chocolate)
            (:flavor-string config)))))
 
 (deftest ref-test

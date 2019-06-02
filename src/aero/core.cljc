@@ -43,7 +43,7 @@
   [opts tag value]
   (let [[fmt & args] value]
     (apply #?(:clj format :cljs gstring/format) fmt
-           (map #(env (str %)) args))))
+           (map #(str (env (str %))) args))))
 
 (defmethod reader 'prop
    [opts tag value]
