@@ -11,6 +11,7 @@
     #?@(:clj [[clojure.java.io :as io]]
         :cljs [[goog.string :as gstring]
                goog.string.format
+               [goog.object :as gobj]
                ["fs" :as fs]
                ["path" :as path] ["os" :as os]]))
   #?(:clj (:import (java.io StringReader))))
@@ -33,7 +34,7 @@
 
 (defn- env [s]
   #?(:clj (System/getenv (str s)))
-  #?(:cljs (aget js/process.env s)))
+  #?(:cljs (gobj/get js/process.env s)))
 
 (defmethod reader 'env
   [opts tag value]
