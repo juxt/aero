@@ -55,7 +55,7 @@ jobs:
 
     steps:
       - checkout
-      - run: sudo npm install -g lumo-cljs
+      - run: sudo npm install -g --unsafe-perm lumo-cljs
       - run: ./lumo-test
         
 workflows:
