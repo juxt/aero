@@ -27,6 +27,28 @@ jobs:
 
           key: clj-deps-{{ checksum "project.clj" }}
 
+  coverage:
+    docker:
+      - image: circleci/clojure:lein-2.8.1
+
+    environment:
+      - TERM: dumb
+
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - clj-deps-{{ checksum "project.clj" }}
+  
+      - run: lein cloverage --codecov
+      - store_test_results:
+          path: target/test-results
+
+      - store_artifacts:
+          path: target/coverage
+
+      - run: bash <(curl -s https://codecov.io/bash)
+
   test-cljs:
     docker:
       - image: circleci/node:latest
@@ -42,3 +64,4 @@ workflows:
     jobs:
       - test-clj
       - test-cljs
+      - coverage
