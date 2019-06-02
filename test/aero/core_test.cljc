@@ -9,6 +9,7 @@
   #?(:cljs (:require [aero.core :refer [read-config reader Deferred] :refer-macros [deferred]]
                      [cljs.tools.reader :as edn]
                      [cljs.test :refer [deftest is testing]]
+                     [goog.object :as gobj]
                      [goog.string :as gstring]
                      goog.string.format)))
 
@@ -16,7 +17,7 @@
 
 (defn env [s]
   #?(:clj (System/getenv (str s)))
-  #?(:cljs (aget js/process.env s)))
+  #?(:cljs (gobj/get js/process.env s)))
 
 (defmethod reader 'expensive-network-call
    [_ tag value]
