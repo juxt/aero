@@ -11,7 +11,9 @@
                      [cljs.test :refer [deftest is testing]]
                      [goog.object :as gobj]
                      [goog.string :as gstring]
-                     goog.string.format)))
+                     goog.string.format
+                     [cljs.tools.reader.reader-types
+                      :refer [source-logging-push-back-reader]])))
 
 (defn env [s]
   #?(:clj (System/getenv (str s)))
@@ -207,3 +209,19 @@
      (is (= #{10} (:bar
                     (read-config (java.io.StringReader.
                                    "{:foo 10 :bar #{#ref [:foo]}}")))))))
+
+(deftest or-incomplete-child
+  (let [config-str "{:x \"foo\"
+                   :y #or [#ref [:x] \"bar\"]
+                   :junk0 \"0\"
+                   :junk1 \"1\"
+                   :junk2 \"2\"
+                   :junk3 \"3\"
+                   :junk4 \"4\"
+                   :junk5 \"5\"
+                   :junk6 \"6\"
+                   :junk7 \"7\"
+                   :junk8 \"8\"}"
+        config (#?(:cljs source-logging-push-back-reader
+                   :clj java.io.StringReader.) config-str)]
+    (is (= "foo" (:x (read-config config))))))

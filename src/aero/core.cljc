@@ -268,7 +268,9 @@
           (cond
             ;; We skipped a value, we cannot be sure whether it will be true in the future, so return with the remainder to check (including the skipped)
             incomplete?
-            (tagged-literal (:tag tl) (cons value xs))
+            {::value (tagged-literal (:tag tl) (cons value xs))
+             ::incomplete? true
+             ::incomplete (::incomplete expansion)}
 
             ;; We found a value, and it's truthy, and we aren't skipped (because order), we successfully got one!
             value
