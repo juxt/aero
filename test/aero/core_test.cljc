@@ -225,3 +225,9 @@
         config (#?(:cljs source-logging-push-back-reader
                    :clj java.io.StringReader.) config-str)]
     (is (= "foo" (:x (read-config config))))))
+
+(deftest or-dangling-ref
+  (let [config-str "{:y #or [#ref [:x] \"bar\"]}"
+        config (#?(:cljs source-logging-push-back-reader
+                   :clj java.io.StringReader.) config-str)]
+    (is (= "bar" (:y (read-config config))))))
