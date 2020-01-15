@@ -261,10 +261,11 @@
         (expand-scalar-repeatedly (:form tl) opts env ks)]
     (if incomplete?
       (update expansion ::value rewrap)
-      (loop [[x & xs] value]
+      (loop [[x & xs] value
+             idx 0]
         (let [{:keys [:aero.core/incomplete? :aero.core/value]
                :as expansion}
-              (expand x opts env ks)]
+              (expand x opts env (conj ks idx))]
           (cond
             ;; We skipped a value, we cannot be sure whether it will be true in the future, so return with the remainder to check (including the skipped)
             incomplete?
@@ -282,7 +283,7 @@
 
             :else
             ;; Falsey value, but not skipped, recur with the rest to try
-            (recur xs)))))))
+            (recur xs (inc idx))))))))
 
 (defn- assoc-in-kv-seq
   [x ks v]
