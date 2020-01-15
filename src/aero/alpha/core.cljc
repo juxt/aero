@@ -34,7 +34,7 @@
                {`reassemble (fn [_ queue]
                               (mapv second (sort-by first queue)))})
 
-    (list? x)
+    (seq? x)
     (with-meta (map-indexed (fn [idx v] [idx v]) x)
                {`reassemble (fn [_ queue]
                               (apply list (map second (sort-by first queue))))})
@@ -128,7 +128,7 @@
   "Expand value x.  Dispatches on whether it's a scalar or collection.  If it's
   a collection it will expand the elements of the collection."
   [x opts env ks]
-  (if (or (and (map? x) (not (record? x))) (set? x) (list? x) (vector? x))
+  (if (or (and (map? x) (not (record? x))) (set? x) (seq? x) (vector? x))
     (expand-coll x opts env ks)
     (expand-scalar x opts env ks)))
 
