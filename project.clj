@@ -1,6 +1,6 @@
 ;; Copyright © 2015, JUXT LTD.
 
-(defproject aero "1.1.5"
+(defproject aero "1.1.6"
   :description "A small library for explicit, intentful configuration."
   :url "http://github.com/juxt/aero"
   :license {:name "The MIT License"
