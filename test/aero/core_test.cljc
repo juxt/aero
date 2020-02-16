@@ -6,8 +6,6 @@
                       #?@(:clj [deferred resource-resolver root-resolver])
                       #?(:cljs Deferred)]
     #?@(:cljs [:refer-macros [deferred]])]
-   #?(:clj [clojure.edn :as edn]
-      :cljs [cljs.tools.reader :as edn])
    [clojure.test :refer [deftest is testing are]]
    #?@(:clj [[clojure.java.io :as io]]
        :cljs [[goog.object :as gobj]
