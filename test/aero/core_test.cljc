@@ -8,7 +8,7 @@
   #?(:clj (:import [aero.core Deferred]))
   #?(:cljs (:require [aero.core :refer [read-config reader Deferred] :refer-macros [deferred]]
                      [cljs.tools.reader :as edn]
-                     [cljs.test :refer [deftest is testing]]
+                     [cljs.test :refer [deftest is testing are]]
                      [goog.object :as gobj]
                      [goog.string :as gstring]
                      goog.string.format
@@ -231,3 +231,21 @@
         config (#?(:cljs source-logging-push-back-reader
                    :clj java.io.StringReader.) config-str)]
     (is (= "bar" (:y (read-config config))))))
+
+(deftest meta-preservation-test
+  (are [ds] (= ds
+               (::foo
+                 (meta
+                   (read-config
+                     (#?(:cljs source-logging-push-back-reader
+                         :clj java.io.StringReader.)
+                               (binding [*print-meta* true]
+                                 (pr-str (with-meta ds {::foo ds}))))))))
+    []
+    {}
+    #{}
+    ()
+    [1]
+    {:a :b}
+    #{:a :b}
+    '(1)))

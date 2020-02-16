@@ -5,7 +5,7 @@
     [aero.alpha.core :refer
      [expand expand-scalar-repeatedly expand-case eval-tagged-literal
       reassemble kv-seq]]
-    [clojure.walk :refer [walk postwalk]]
+    [aero.impl.walk :refer [postwalk]]
     #?@(:clj [[clojure.edn :as edn]
               [aero.impl.macro :as macro]]
         :cljs [[cljs.tools.reader.edn :as edn]

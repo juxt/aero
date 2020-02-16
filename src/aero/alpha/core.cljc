@@ -22,22 +22,26 @@
     (and (map? x) (not (record? x)))
     (with-meta
       (into [] x)
-      {`reassemble (fn [_ queue] (into {} queue))})
+      {`reassemble (fn [_ queue] (into (empty x) queue))})
 
     (set? x)
     (with-meta (map-indexed (fn [idx v] [idx v]) x)
                {`reassemble (fn [_ queue]
-                              (set (map second queue)))})
+                              (into (empty x)
+                                    (map second queue)))})
 
     (vector? x)
     (with-meta (map-indexed (fn [idx v] [idx v]) x)
                {`reassemble (fn [_ queue]
-                              (mapv second (sort-by first queue)))})
+                              (into (empty x)
+                                    (mapv second (sort-by first queue))))})
 
     (seq? x)
     (with-meta (map-indexed (fn [idx v] [idx v]) x)
                {`reassemble (fn [_ queue]
-                              (apply list (map second (sort-by first queue))))})
+                              (with-meta
+                                (apply list (map second (sort-by first queue)))
+                                (meta x)))})
     ;; Scalar value
     :else
     nil))
