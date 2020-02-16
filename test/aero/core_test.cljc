@@ -19,6 +19,11 @@
   #?(:clj (System/getenv (str s)))
   #?(:cljs (gobj/get js/process.env s)))
 
+(defn- string-reader
+  [str]
+  (#?(:cljs source-logging-push-back-reader
+      :clj java.io.StringReader.) str))
+
 (def network-call-count (atom 0))
 
 (defmethod reader 'expensive-network-call
@@ -153,7 +158,7 @@
        (is (read-config source {:profile :relative-abs}))
        (is (read-config source {:profile :resource :resolver resource-resolver}))
        (is (read-config source {:profile :file :resolver root-resolver}))
-       (is (read-config (-> source slurp java.io.StringReader.)
+       (is (read-config (-> source slurp string-reader)
                         {:profile :relative-abs}))
        (is (read-config source {:profile  :map
                                 :resolver {:sub-includes (io/resource "aero/sub/includes.edn")
@@ -164,20 +169,18 @@
   (let [source "test/aero/includes.edn"]
     (is (:aero/missing-include (read-config source {:profile :file-does-not-exist})))))
 
-#?(:clj
-   (deftest dangling-ref-test
-     (is
-      (=
-       {:user {:favorite-color :blue}
-        :gardner {:favorite-color :blue}
-        :karl {:favorite-color :blue}
-        :color :blue}
-       (read-config (java.io.StringReader.
-                     (binding [*print-meta* true]
-                       (pr-str {:user ^:ref [:karl]
-                                :gardner {:favorite-color ^:ref [:color]}
-                                :karl ^:ref [:gardner]
-                                :color :blue}))))))))
+(deftest dangling-ref-test
+  (is (= {:user {:favorite-color :blue}
+          :gardner {:favorite-color :blue}
+          :karl {:favorite-color :blue}
+          :color :blue}
+         (read-config
+           (string-reader
+             (binding [*print-meta* true]
+               (pr-str {:user ^:ref [:karl]
+                        :gardner {:favorite-color ^:ref [:color]}
+                        :karl ^:ref [:gardner]
+                        :color :blue})))))))
 
 (deftest deferred-test
   (is
@@ -204,11 +207,12 @@
   (let [config (read-config "test/aero/config.edn")]
     (is (= nil (config :falsey-user-return)))))
 
-#?(:clj
-   (deftest ref-in-set-test
-     (is (= #{10} (:bar
-                    (read-config (java.io.StringReader.
-                                   "{:foo 10 :bar #{#ref [:foo]}}")))))))
+(deftest ref-in-set-test
+  (is (= #{10}
+         (:bar
+           (read-config
+             (string-reader
+               "{:foo 10 :bar #{#ref [:foo]}}"))))))
 
 (deftest or-incomplete-child
   (let [config-str "{:x \"foo\"
@@ -222,14 +226,12 @@
                    :junk6 \"6\"
                    :junk7 \"7\"
                    :junk8 \"8\"}"
-        config (#?(:cljs source-logging-push-back-reader
-                   :clj java.io.StringReader.) config-str)]
+        config (string-reader config-str)]
     (is (= "foo" (:x (read-config config))))))
 
 (deftest or-dangling-ref
   (let [config-str "{:y #or [#ref [:x] \"bar\"]}"
-        config (#?(:cljs source-logging-push-back-reader
-                   :clj java.io.StringReader.) config-str)]
+        config (string-reader config-str)]
     (is (= "bar" (:y (read-config config))))))
 
 (deftest meta-preservation-test
@@ -237,10 +239,9 @@
                (::foo
                  (meta
                    (read-config
-                     (#?(:cljs source-logging-push-back-reader
-                         :clj java.io.StringReader.)
-                               (binding [*print-meta* true]
-                                 (pr-str (with-meta ds {::foo ds}))))))))
+                     (string-reader
+                       (binding [*print-meta* true]
+                         (pr-str (with-meta ds {::foo ds}))))))))
     []
     {}
     #{}
