@@ -1,19 +1,21 @@
 ;; Copyright © 2015-2017, JUXT LTD.
 
 (ns aero.core-test
-  #?(:clj (:require [aero.core :refer :all]
-                    [clojure.edn :as edn]
-                    [clojure.test :refer :all]
-                    [clojure.java.io :as io]))
-  #?(:clj (:import [aero.core Deferred]))
-  #?(:cljs (:require [aero.core :refer [read-config reader Deferred] :refer-macros [deferred]]
-                     [cljs.tools.reader :as edn]
-                     [cljs.test :refer [deftest is testing are]]
-                     [goog.object :as gobj]
-                     [goog.string :as gstring]
-                     goog.string.format
-                     [cljs.tools.reader.reader-types
-                      :refer [source-logging-push-back-reader]])))
+  (:require
+   [aero.core :refer [read-config reader
+                      #?@(:clj [deferred resource-resolver root-resolver])
+                      #?(:cljs Deferred)]
+    #?@(:cljs [:refer-macros [deferred]])]
+   #?(:clj [clojure.edn :as edn]
+      :cljs [cljs.tools.reader :as edn])
+   [clojure.test :refer [deftest is testing are]]
+   #?@(:clj [[clojure.java.io :as io]]
+       :cljs [[goog.object :as gobj]
+              [goog.string :as gstring]
+              goog.string.format
+              [cljs.tools.reader.reader-types
+               :refer [source-logging-push-back-reader]]]))
+  #?(:clj (:import [aero.core Deferred])))
 
 (defn env [s]
   #?(:clj (System/getenv (str s)))
