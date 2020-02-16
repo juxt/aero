@@ -10,6 +10,13 @@
             [lein-cloverage "1.0.13"]]
 
   :aliases {"test-all" ["do" ["test"] ["shell" "./lumo-test"]]}
+  :release-tasks [["vcs" "assert-committed"]
+                  ["change" "version" "leiningen.release/bump-version" "patch"]
+                  ["change" "version" "leiningen.release/bump-version" "release"]
+                  ["vcs" "commit"]
+                  ["vcs" "tag"]
+                  ["deploy" "clojars"]
+                  ["vcs" "push"]]
   :eastwood {:namespaces [aero.core aero.alpha.core]}
   :profiles
   {:provided {:dependencies [[org.clojure/clojure "1.8.0"]]}
