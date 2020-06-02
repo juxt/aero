@@ -14,6 +14,10 @@
  :false-boolean #boolean "false"
  :trivial-false-boolean #boolean "OTHER"
  :nil-false-boolean #boolean ""
+ :split-comma #split "host1,host2,host3"
+ :split-comma-nil #split nil
+ :split-comma-empty #split ""
+ :split-re #split-re ["\\t" "foo\tbar\tbaz"]
  :long #long "1234"
  :double #double "4567.8"
  :keyword #keyword "foo/bar"

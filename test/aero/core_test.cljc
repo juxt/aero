@@ -151,6 +151,18 @@
   (let [config (read-config "test/aero/config.edn" {:profile :dev})]
     (is (= "dummy" (:dummy config)))))
 
+(deftest split-test
+  (let [config (read-config "test/aero/config.edn" {:profile :dev})]
+    (is (= ["host1" "host2" "host3"]
+           (:split-comma config)))
+    (is (= [] (:split-comma-nil config)))
+    (is (= [] (:split-comma-empty config)))))
+
+(deftest split-re-test
+  (let [config (read-config "test/aero/config.edn" {:profile :dev})]
+    (is (= ["foo" "bar" "baz"]
+           (:split-re config)))))
+
 #?(:clj
    (deftest resolver-tests
      (let [source (io/resource "aero/includes.edn")]

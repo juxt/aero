@@ -6,6 +6,7 @@
      [expand expand-scalar-repeatedly expand-case eval-tagged-literal
       reassemble kv-seq]]
     [aero.impl.walk :refer [postwalk]]
+    [clojure.string :as str]
     #?@(:clj [[clojure.edn :as edn]
               [aero.impl.macro :as macro]]
         :cljs [[cljs.tools.reader.edn :as edn]
@@ -100,6 +101,19 @@
 (defmethod reader 'merge
   [opts tag values]
   (apply merge values))
+
+(letfn [(-split [value re]
+          (if-not (str/blank? value)
+            (str/split value re)
+            []))]
+
+  (defmethod reader 'split
+    [opts tag value]
+    (-split value #","))
+
+  (defmethod reader 'split-re
+    [opts tag [re value]]
+    (-split value (re-pattern re))))
 
 #?(:clj
    (defn relative-resolver [source include]
@@ -240,7 +254,7 @@
                                    ::value tl})))
       (assoc expansion ::value (get env value)))))
 
-(defmethod eval-tagged-literal 'profile 
+(defmethod eval-tagged-literal 'profile
   [tl opts env ks]
   (expand-case (:profile opts) tl opts env ks))
 

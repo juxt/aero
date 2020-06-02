@@ -130,6 +130,27 @@ Use `#or` when you want to provide a list of possibilities, perhaps with a defau
              #env PROD_PASSWD]}
 ```
 
+### split
+
+`#split` is used to split a string with comma. These values often come from
+environment variables that lack structure and thus use delimiters.
+
+```clojure
+{:hosts #split "app1.host.com,app2.host.com"}
+
+{:hosts #split #env APP_HOSTS}
+```
+
+### split-re
+
+`#split-re` works the same but allows to specify a custom separator as the first
+item of the following vector. As EDN doesn't support `#"regex"` syntax, use a
+plain string which gets converted with `re-pattern` under the hood:
+
+```clojure
+{:hosts #split-re ["\\t" "app1.host.com\tapp2.host.com"]}
+```
+
 ### profile
 
 Use profile as a kind of reader conditional.
