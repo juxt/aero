@@ -3,7 +3,7 @@
 ;; Queue utilities
 (defn- queue
   [& xs]
-  (into #?(:clj (clojure.lang.PersistentQueue/EMPTY)
+  (into #?(:clj clojure.lang.PersistentQueue/EMPTY
            :cljs cljs.core/PersistentQueue.EMPTY)
         xs))
 
