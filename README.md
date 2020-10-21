@@ -116,7 +116,7 @@ Use `#envf` to insert environment variables into a formatted string.
 Use `#or` when you want to provide a list of possibilities, perhaps with a default at the end.
 
 ```clojure
-{:port #or [#env PORT 8080]}
+{:user #or [#env USER "alice"]}
 ```
 
 ### join
