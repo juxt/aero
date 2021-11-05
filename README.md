@@ -170,9 +170,9 @@ can specify multiple hostnames in a set.
                     :default 8082}}}
 ```
 
-### long, double, keyword, boolean
+### int, long, double, keyword, boolean
 
-Use to parse a `String` value into a `Long`, `Double`, keyword or boolean.
+Use to parse a `String` value into a `Integer`, `Long`, `Double`, keyword or boolean.
 
 ``` clojure
 {:debug #boolean #or [#env DEBUG "true"]
