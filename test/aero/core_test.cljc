@@ -1,22 +1,30 @@
 ;; Copyright © 2015-2017, JUXT LTD.
 
 (ns aero.core-test
-  #?(:clj (:require [aero.core :refer :all]
-                    [clojure.edn :as edn]
-                    [clojure.test :refer :all]
-                    [clojure.java.io :as io]))
-  #?(:clj (:import [aero.core Deferred]))
-  #?(:cljs (:require [aero.core :refer [read-config reader Deferred] :refer-macros [deferred]]
-                     [cljs.tools.reader :as edn]
-                     [cljs.test :refer [deftest is testing]]
-                     [goog.string :as gstring]
-                     goog.string.format)))
-
-(def network-call-count (atom 0))
+  (:require
+   [aero.core :refer [read-config reader
+                      #?@(:clj [deferred resource-resolver root-resolver])
+                      #?(:cljs Deferred)]
+    #?@(:cljs [:refer-macros [deferred]])]
+   [clojure.test :refer [deftest is testing are]]
+   #?@(:clj [[clojure.java.io :as io]]
+       :cljs [[goog.object :as gobj]
+              [goog.string :as gstring]
+              goog.string.format
+              [cljs.tools.reader.reader-types
+               :refer [source-logging-push-back-reader]]]))
+  #?(:clj (:import [aero.core Deferred])))
 
 (defn env [s]
   #?(:clj (System/getenv (str s)))
-  #?(:cljs (aget js/process.env s)))
+  #?(:cljs (gobj/get js/process.env s)))
+
+(defn- string-reader
+  [str]
+  (#?(:cljs source-logging-push-back-reader
+      :clj java.io.StringReader.) str))
+
+(def network-call-count (atom 0))
 
 (defmethod reader 'expensive-network-call
    [_ tag value]
@@ -56,7 +64,7 @@
 
 (deftest join-test
   (let [config (read-config "test/aero/config.edn")]
-    (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" (env "TERM"))
+    (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" (str (env "TERM")))
            (:dumb-term config)))
     (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" "smart")
            (:smart-term config)))))
@@ -72,7 +80,7 @@
 
 (deftest envf-test
   (let [config (read-config "test/aero/config.edn")]
-    (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" (env "TERM"))
+    (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" (str (env "TERM")))
            (:dumb-term-envf config)))))
 
 #?(:clj
@@ -111,7 +119,7 @@
 
 (deftest format-test
   (let [config (read-config "test/aero/config.edn")]
-    (is (= (#?(:clj format :cljs gstring/format) "My favorite flavor is %s %s" (env "TERM") :chocolate)
+    (is (= (#?(:clj format :cljs gstring/format) "My favorite flavor is %s %s" (or (env "TERM") "flaa") :chocolate)
            (:flavor-string config)))))
 
 (deftest ref-test
@@ -150,27 +158,29 @@
        (is (read-config source {:profile :relative-abs}))
        (is (read-config source {:profile :resource :resolver resource-resolver}))
        (is (read-config source {:profile :file :resolver root-resolver}))
-       (is (read-config (-> source slurp java.io.StringReader.)
+       (is (read-config (-> source slurp string-reader)
                         {:profile :relative-abs}))
        (is (read-config source {:profile  :map
                                 :resolver {:sub-includes (io/resource "aero/sub/includes.edn")
                                            :valid-file   (io/resource "aero/valid.edn")}}))
        (is (:aero/missing-include (read-config source {:profile :file-does-not-exist}))))))
 
-#?(:clj
-   (deftest dangling-ref-test
-     (is
-      (=
-       {:user {:favorite-color :blue}
-        :gardner {:favorite-color :blue}
-        :karl {:favorite-color :blue}
-        :color :blue}
-       (read-config (java.io.StringReader.
-                     (binding [*print-meta* true]
-                       (pr-str {:user ^:ref [:karl]
-                                :gardner {:favorite-color ^:ref [:color]}
-                                :karl ^:ref [:gardner]
-                                :color :blue}))))))))
+(deftest missing-include-test
+  (let [source "test/aero/includes.edn"]
+    (is (:aero/missing-include (read-config source {:profile :file-does-not-exist})))))
+
+(deftest dangling-ref-test
+  (is (= {:user {:favorite-color :blue}
+          :gardner {:favorite-color :blue}
+          :karl {:favorite-color :blue}
+          :color :blue}
+         (read-config
+           (string-reader
+             (binding [*print-meta* true]
+               (pr-str {:user ^:ref [:karl]
+                        :gardner {:favorite-color ^:ref [:color]}
+                        :karl ^:ref [:gardner]
+                        :color :blue})))))))
 
 (deftest deferred-test
   (is
@@ -196,3 +206,47 @@
 (deftest falsey-user-return-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= nil (config :falsey-user-return)))))
+
+(deftest ref-in-set-test
+  (is (= #{10}
+         (:bar
+           (read-config
+             (string-reader
+               "{:foo 10 :bar #{#ref [:foo]}}"))))))
+
+(deftest or-incomplete-child
+  (let [config-str "{:x \"foo\"
+                   :y #or [#ref [:x] \"bar\"]
+                   :junk0 \"0\"
+                   :junk1 \"1\"
+                   :junk2 \"2\"
+                   :junk3 \"3\"
+                   :junk4 \"4\"
+                   :junk5 \"5\"
+                   :junk6 \"6\"
+                   :junk7 \"7\"
+                   :junk8 \"8\"}"
+        config (string-reader config-str)]
+    (is (= "foo" (:x (read-config config))))))
+
+(deftest or-dangling-ref
+  (let [config-str "{:y #or [#ref [:x] \"bar\"]}"
+        config (string-reader config-str)]
+    (is (= "bar" (:y (read-config config))))))
+
+(deftest meta-preservation-test
+  (are [ds] (= ds
+               (::foo
+                 (meta
+                   (read-config
+                     (string-reader
+                       (binding [*print-meta* true]
+                         (pr-str (with-meta ds {::foo ds}))))))))
+    []
+    {}
+    #{}
+    ()
+    [1]
+    {:a :b}
+    #{:a :b}
+    '(1)))
