@@ -32,7 +32,7 @@ Create a file called `config.edn` containing the following
 In your code, read the configuration like this
 
 ```clojure
-(require '[aero.core :refer (read-config)])
+(require '[aero.core :refer [read-config]])
 (read-config "config.edn")
 ```
 
