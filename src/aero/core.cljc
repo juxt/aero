@@ -246,7 +246,7 @@
 
 (defmethod eval-tagged-literal 'hostname
   [tl {:keys [hostname] :as opts} env ks]
-  (expand-case (or hostname #?(:clj (env "HOSTNAME")
+  (expand-case (or hostname #?(:clj (get-env "HOSTNAME")
                                :cljs (os/hostname)))
                tl opts env ks))
 
