@@ -16,11 +16,6 @@ Add the following dependency to your `project.clj` file
 
 [![Build Status](https://circleci.com/gh/juxt/aero.svg?style=svg)](https://circleci.com/gh/juxt/aero)
 
-## Status
-
-Please note that being a beta version indicates the provisional status
-of this library, and that features are subject to change.
-
 ## Getting started
 
 Create a file called `config.edn` containing the following
