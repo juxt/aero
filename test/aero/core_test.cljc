@@ -36,6 +36,10 @@
   [opts tag value]
   (if (= value :favorite) :chocolate :vanilla))
 
+(defmethod reader 'return-key-path
+  [opts _ _]
+  (:key-path opts))
+
 (deftest basic-test
   (let [config (read-config "test/aero/config.edn")]
     (is (= "Hello World!" (:greeting config))))
@@ -250,3 +254,10 @@
     {:a :b}
     #{:a :b}
     '(1)))
+
+(deftest pass-keys-to-reader
+  (is (= [:a :b :c]
+         (get-in (read-config
+                  (string-reader
+                   "{:a {:b {:c #return-key-path 1}}}"))
+          [:a :b :c]))))
