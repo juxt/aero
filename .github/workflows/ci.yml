@@ -40,10 +40,14 @@ jobs:
           ~/.lein
         key: clj-deps-${{ hashFiles('project.clj') }}
 
-  # test-cljs:
-  # coverage:
-  build:
-    needs: [test-clj]
+  test-cljs:
     runs-on: ubuntu-latest
+    container:
+      image: cimg/clojure:1.11.1-browsers
+
     steps:
-    - run: echo 'Successfully ran all jobs'
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - run: sudo npm install -g --unsafe-perm lumo-cljs
+    - run: ./lumo-test
