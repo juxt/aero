@@ -196,7 +196,7 @@
          (read-pr-into-tagged-literal pr)
          (catch Exception e
            (let [line (.getLineNumber pr)]
-             (throw (ex-info (#?(:clj format :cljs gstring/format) "Config error on line %s" line) {:line line} e))))))
+             (throw (ex-info (format "Config error on line %s" line) {:line line} e))))))
      :cljs
      (read-pr-into-tagged-literal
        (cond
