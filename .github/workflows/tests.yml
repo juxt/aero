@@ -1,0 +1,53 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test-clj:
+    runs-on: ubuntu-latest
+    container:
+      image: cimg/clojure:1.11.1-browsers
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Check cache
+      uses: actions/cache/restore@v4
+      id: cache
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.lein
+        key: clj-deps-${{ hashFiles('project.clj') }}
+
+    - run: lein deps
+    - run: lein eastwood
+    - run: lein cljfmt check
+    - run: lein test
+
+    - name: Save cache
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.lein
+        key: clj-deps-${{ hashFiles('project.clj') }}
+
+  test-cljs:
+    runs-on: ubuntu-latest
+    container:
+      image: cimg/clojure:1.11.1-browsers
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - run: sudo npm install -g --unsafe-perm lumo-cljs
+    - run: ./lumo-test
