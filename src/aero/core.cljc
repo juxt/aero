@@ -60,6 +60,11 @@
    #?(:clj (System/getProperty (str value))
       :cljs nil))
 
+(defmethod reader 'int
+  [opts tag value]
+  #?(:clj (Integer/parseInt (str value)))
+  #?(:cljs (js/parseInt (str value))))
+ 
 (defmethod reader 'long
   [opts tag value]
   #?(:clj (Long/parseLong (str value)))
