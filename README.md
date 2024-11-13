@@ -86,7 +86,7 @@ Fortunately for Clojure developers like us, most of the tech to read configurati
 
 ## Tag literals
 
-Aero provides a small library of tag literals.
+Aero provides a small library of tag literals. If you need more options, check out [monkey-projects/aero-ext](https://github.com/monkey-projects/aero-ext)
 
 ### env
 
