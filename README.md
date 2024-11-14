@@ -1,6 +1,9 @@
 # Aero
 
 ![Workflow](https://github.com/juxt/aero/actions/workflows/tests.yml/badge.svg)
+[![Join the chat at https://clojurians.slack.com/archives/C0CFGN25D](
+https://badgen.net/badge/chat/on%20slack/purple?icon=slack
+)](https://clojurians.slack.com/archives/C0CFGN25D)
 
 (<b>a</b>ero is <b>e</b>dn <b>r</b>eally, <b>o</b>k?)
 
