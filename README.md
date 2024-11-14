@@ -82,6 +82,10 @@ Also, see these arguments [against](https://gist.github.com/telent/9742059).
 
 Fortunately for Clojure developers like us, most of the tech to read configuration in a safe, secure and extensible way already exists in the Clojure core library (EDN).
 
+## Community
+
+If you you have any questions, don't hesitate to write a message in [JUXT's Clojurians Slack channel](https://clojurians.slack.com/archives/C0CFGN25D)
+
 ## Tag literals
 
 Aero provides a small library of tag literals.
