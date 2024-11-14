@@ -1,6 +1,6 @@
 # Aero
 
-[![Join the chat at https://gitter.im/juxt/aero](https://badges.gitter.im/juxt/aero.svg)](https://gitter.im/juxt/aero?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+![Workflow](https://github.com/juxt/aero/actions/workflows/tests.yml/badge.svg)
 
 (<b>a</b>ero is <b>e</b>dn <b>r</b>eally, <b>o</b>k?)
 
@@ -13,8 +13,6 @@ A small library for explicit, intentful configuration.
 Add the following dependency to your `project.clj` file
 
 [![Clojars Project](http://clojars.org/aero/latest-version.svg)](http://clojars.org/aero)
-
-[![Build Status](https://circleci.com/gh/juxt/aero.svg?style=svg)](https://circleci.com/gh/juxt/aero)
 
 ## Getting started
 
