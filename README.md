@@ -1,6 +1,6 @@
 # Aero
 
-![Workflow](https://github.com/juxt/aero/actions/workflows/tests.yml/badge.svg)
+![Workflow](https://github.com/juxt/aero/actions/workflows/tests.yml/badge.svg?branch=master)
 [![Join the chat at https://clojurians.slack.com/archives/C0CFGN25D](
 https://badgen.net/badge/chat/on%20slack/purple?icon=slack
 )](https://clojurians.slack.com/archives/C0CFGN25D)
