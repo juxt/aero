@@ -217,13 +217,23 @@
   (fn [v]
     (tagged-literal (:tag tl) v)))
 
+(defn- pop*
+  [ks]
+  ;; pop doesn't work with clojure.lang.Cons so we use pop
+  ;; for vector and rest for anything that resembles a list
+  (if (vector? ks)
+    (pop ks)
+    (rest ks)))
+
 (defmethod eval-tagged-literal :default
   [tl opts env ks]
   (let [{:keys [:aero.core/incomplete?] :as expansion}
         (expand (:form tl) opts env ks)]
     (if incomplete?
       (update expansion ::value (rewrap tl))
-      (update expansion ::value #(reader opts (:tag tl) %)))))
+      (update expansion ::value #(reader (assoc opts :key-path (pop* ks))
+                                         (:tag tl)
+                                         %)))))
 
 (defmethod eval-tagged-literal 'ref
   [tl opts env ks]
