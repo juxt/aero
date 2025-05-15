@@ -93,6 +93,10 @@
   [opts tag value]
   (apply str value))
 
+(defmethod reader 'concat
+  [opts tag value]
+  (apply concat value))
+
 (defmethod reader 'read-edn
   [opts tag value]
   (some-> value str edn/read-string))

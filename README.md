@@ -123,11 +123,21 @@ Use `#or` when you want to provide a list of possibilities, perhaps with a defau
 
 `#join` is used as a string builder, useful in a variety of situations such as building up connection strings.
 
-``` clojure
+```clojure
 {:url #join ["jdbc:postgresql://psq-prod/prod?user="
              #env PROD_USER
              "&password="
              #env PROD_PASSWD]}
+```
+
+### concat
+
+`#concat` is used to concatenate colls, useful when you need to handle lists.
+
+```clojure
+{:args #concat [["aaa" "bbb"]
+                #profile {:default ["--prod"]
+                          :dev     ["--dev" "--verbose"]}]}
 ```
 
 ### profile

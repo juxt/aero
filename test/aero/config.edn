@@ -4,6 +4,7 @@
  :smart-term #join ["Terminal is " #or [#env NONE "smart"]]
  :dumb-term-envf #envf ["Terminal is %s" TERM]
  :flavor-string #join ["My favorite flavor is " #or [#env TERM "flaa"] " " #myflavor :favorite]
+ :my-list-argv #concat [["this" "is" "args"] ["and" "here" "other" "args"] [] nil]
  :test ^:ref [:greeting]
  :remote #include "included.edn"
  :test-nested ^:ref [:test]

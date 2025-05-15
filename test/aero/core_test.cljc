@@ -69,6 +69,11 @@
     (is (= (#?(:clj format :cljs gstring/format) "Terminal is %s" "smart")
            (:smart-term config)))))
 
+(deftest concat-test
+  (let [config (read-config "test/aero/config.edn")]
+    (is (= ["this" "is" "args" "and" "here" "other" "args"]
+           (:my-list-argv config)))))
+
 #?(:clj
    (deftest test-read
      (let [x [:foo :bar :baz]
