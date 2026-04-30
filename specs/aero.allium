@@ -1,0 +1,174 @@
+-- allium: 3
+
+-- Aero: a small Clojure/ClojureScript library for explicit, intentful
+-- configuration. Reads EDN config files with a set of tagged literals
+-- (#env, #profile, #include, #ref, #or, #join, ...) that are resolved
+-- against an options map (profile, user, resolver) at read time.
+
+external entity Host {
+  hostname : string
+  user     : string
+  env      : map<string, string>     -- process environment variables
+  props    : map<string, string>     -- JVM system properties (Clojure only)
+}
+
+external entity ConfigSource {
+  -- A path, URL, or io/resource handle pointing to an EDN config file.
+  location : string
+  contents : string                  -- EDN text
+}
+
+value Opts {
+  profile  : optional<keyword>       -- selects branch of #profile
+  user     : optional<string>        -- overrides Host.user for #user
+  resolver : Resolver                -- resolves #include targets
+  source   : ConfigSource            -- the root source being read
+}
+
+value Resolver {
+  -- Either a function (parent, include-target) -> resolved-location,
+  -- or a map from include-target to resolved-location.
+  kind : enum { fn, map, resource, root, relative }
+}
+
+entity TaggedLiteral {
+  -- An unresolved #tag value parsed from EDN, awaiting expansion.
+  tag   : symbol                     -- e.g. env, profile, or, ref, include
+  value : any
+  path  : list<any>                  -- key path within the config tree
+}
+
+entity Config {
+  source   : ConfigSource
+  opts     : Opts
+  value    : any                     -- fully resolved EDN data
+  state    : enum { parsed, expanding, resolved, incomplete }
+}
+
+actor Caller {
+  -- The Clojure program embedding Aero (e.g. an application's config ns).
+  role : enum { application, library }
+}
+
+surface ReadConfig {
+  -- Public entry point: aero.core/read-config
+  called by : Caller
+  accepts   : ConfigSource, Opts
+  returns   : any                    -- the resolved EDN value
+  promises  :
+    "Parses the source as EDN with Aero's tagged-literal readers."
+    "Expands every recognised tagged literal against opts and Host."
+    "Returns pure Clojure data with no remaining TaggedLiteral nodes."
+  may fail with :
+    "Incomplete resolution" when a tag cannot be resolved
+    "Max attempts exhausted" when expansion does not converge
+}
+
+surface ReaderExtension {
+  -- aero.core/reader multimethod and aero.alpha.core/eval-tagged-literal.
+  called by : Caller
+  promises  :
+    "Callers may defmethod reader on a custom tag symbol to add new
+     tagged literals usable inside config files."
+    "Callers may defmethod eval-tagged-literal for case-like or
+     conditional macros (alpha API)."
+}
+
+surface ResolverHook {
+  called by : Caller
+  promises  :
+    "Caller may pass :resolver in opts to control how #include targets
+     are located."
+    "Built-in resolvers: relative (default), resource-resolver,
+     root-resolver. A map resolver maps include-target -> location."
+}
+
+enum BuiltinTag {
+  env, envf, prop, long, double, keyword, boolean,
+  include, join, read-edn, merge,
+  or, profile, hostname, user, ref
+}
+
+rule env_lookup {
+  when : a #env TAG literal is expanded
+  ensures :
+    "The literal resolves to Host.env[TAG], or nil if unset."
+}
+
+rule profile_selection {
+  when : a #profile MAP literal is expanded
+  ensures :
+    "If Opts.profile is a key of MAP, expansion is MAP[Opts.profile]."
+    "Otherwise expansion is MAP[:default] if present, else nil."
+}
+
+rule hostname_selection {
+  when : a #hostname MAP literal is expanded
+  ensures :
+    "Expansion is the entry whose key is, or contains, Host.hostname,
+     falling back to :default."
+}
+
+rule user_selection {
+  when : a #user MAP literal is expanded
+  ensures :
+    "Expansion uses Opts.user if provided, else Host.user, with the
+     same matching rules as #hostname."
+}
+
+rule or_selection {
+  when : a #or LIST literal is expanded
+  ensures :
+    "Expansion is the first element of LIST that resolves to a
+     non-nil value; nil if none do."
+}
+
+rule ref_resolution {
+  when : a #ref PATH literal is expanded
+  ensures :
+    "Expansion equals (get-in resolved-config PATH)."
+    "Refs may be nested and may appear inside #include'd files."
+}
+
+rule include_resolution {
+  when : a #include TARGET literal is expanded
+  ensures :
+    "Opts.resolver is applied to TARGET to obtain a ConfigSource."
+    "That source is read recursively under the same Opts and its
+     resolved value replaces the literal."
+}
+
+rule coercion_tags {
+  when : one of #long #double #keyword #boolean is expanded over a string
+  ensures :
+    "The string is parsed into the corresponding scalar type."
+}
+
+rule join_and_envf {
+  when : a #join LIST is expanded
+  ensures : "Expansion is the concatenation of the resolved elements as a string."
+  when : a #envf [FMT, VARS...] is expanded
+  ensures : "Expansion is FMT formatted with the named env variables."
+}
+
+transitions Config {
+  parsed -> expanding   when ReadConfig begins resolution
+  expanding -> resolved when all TaggedLiteral nodes have been expanded
+  expanding -> incomplete when a literal cannot be resolved after retries
+  incomplete -> resolved by reporting a warning and substituting nil
+}
+
+invariant resolved_has_no_tags {
+  on : Config
+  holds : "state = resolved implies value contains no TaggedLiteral nodes."
+}
+
+invariant config_is_data {
+  on : Config
+  holds : "Resolved value is pure EDN data; no executable code is
+           evaluated during reading (langsec stance from README)."
+}
+
+open question "Exact retry / convergence policy for partially-resolvable graphs (read-config uses an attempt counter and a warning path); spec captures outcomes but not the precise iteration bound."
+open question "Deferred values (aero.core/deferred macro, ->Deferred records) are realised after resolution; their intended public contract beyond internal use is unclear from the README."
+open question "Schema/Plumatic and Component integrations described in the README are usage patterns rather than library surfaces; not modelled here."
