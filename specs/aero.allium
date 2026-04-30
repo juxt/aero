@@ -1,0 +1,307 @@
+-- allium: 3
+-- aero.allium
+--
+-- Scope: Aero is a small Clojure/ClojureScript library for explicit,
+-- intentful configuration. It reads EDN configuration files containing
+-- a fixed set of tag literals (#env, #profile, #include, #ref, #or,
+-- #join, #merge, #long, #double, #boolean, #keyword, #user, #hostname,
+-- #envf, #prop, #read-edn) and resolves them into a plain data
+-- structure. It is consumed as a library (no server, no CLI).
+--
+-- Includes:
+--   - The read-config library surface
+--   - The reader extension surface (defmethod reader)
+--   - The alpha tagged-literal-macro surface (eval-tagged-literal)
+--   - Resolver and Profile concepts
+--   - Deferred values
+-- Excludes:
+--   - The internal expand / kv-seq mechanics (implementation detail)
+--
+-- Dependencies: Clojure EDN reader; on the JVM, java.io and System;
+-- in ClojureScript, Node fs/path/os.
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+external entity Application {
+    -- The host program that depends on Aero and calls read-config
+    -- to obtain its configuration as plain Clojure data.
+    name: String
+}
+
+external entity ConfigSource {
+    -- A pointer to EDN config text: a file path, a java.io.File,
+    -- a classpath resource, or a Reader. Aero opens it for reading.
+    location: String
+    kind: file | resource | reader | string
+}
+
+external entity Environment {
+    -- The OS process environment, system properties, hostname and
+    -- user. Read-only inputs that #env, #envf, #prop, #hostname and
+    -- #user consult during resolution.
+    variables: Map<String, String>
+    properties: Map<String, String>
+    hostname: String?
+    user: String?
+}
+
+external entity IncludedFile {
+    -- A secondary EDN file pulled in by an #include tag. Resolved
+    -- relative to the including source by default; resolution is
+    -- pluggable via the :resolver option.
+    path: String
+    exists: Boolean
+}
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+enum Profile {
+    -- The active profile selecting which branch of a #profile tag
+    -- is taken. :default is used when no profile is supplied.
+    default | dev | test | prod | other
+}
+
+value ReadOptions {
+    profile: Profile
+    user: String?
+    hostname: String?
+    resolver: ResolverKind
+}
+
+enum ResolverKind {
+    adaptive | relative | resource | root | map | custom
+}
+
+value TagLiteral {
+    -- A reader-preserved tagged literal awaiting resolution.
+    tag: String
+    form: Any
+}
+
+value ResolvedConfig {
+    -- The plain Clojure/EDN data structure returned to the caller
+    -- after every tagged literal has been resolved and every
+    -- Deferred has been realised.
+    data: Any
+}
+
+------------------------------------------------------------
+-- Entities
+------------------------------------------------------------
+
+entity Config {
+    -- The in-flight configuration being resolved.
+    source: ConfigSource
+    options: ReadOptions
+    state: parsed | resolving | resolved | failed
+    unresolved_tags: List<TagLiteral>
+}
+
+entity Deferred {
+    -- A wrapper around a delayed value. Created with the (deferred ...)
+    -- macro and only realised after tag resolution completes, so
+    -- expensive work (e.g. decrypting prod secrets) is skipped under
+    -- non-matching profiles.
+    realised: Boolean
+    value: Any?
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface LibraryAPI {
+    -- The public Clojure API in aero.core, called by Application.
+    called_by: Application
+
+    read_config: (source: ConfigSource, options: ReadOptions?) -> ResolvedConfig
+        -- Parse the EDN at source, resolve every recognised tag
+        -- literal under options, realise any Deferreds, return data.
+
+    deferred_macro: (expression: Any) -> Deferred
+        -- Wrap an expression so it is only evaluated after resolution.
+
+    relative_resolver: (source: Any, include: String) -> Any
+    resource_resolver: (source: Any, include: String) -> Any
+    root_resolver:     (source: Any, include: String) -> Any
+    adaptive_resolver: (source: Any, include: String) -> Any
+        -- Built-in include-resolution strategies the caller can pass
+        -- as :resolver in ReadOptions. A map literal is also accepted.
+}
+
+surface ReaderExtension {
+    -- The user-extension surface: applications add their own tag
+    -- literals by extending the aero.core/reader multimethod on a
+    -- symbol tag, returning the resolved value.
+    called_by: Application
+
+    defmethod_reader: (tag: String, handler: Any) -> Any
+}
+
+surface AlphaTagMacro {
+    -- The alpha API for defining case-like or partially-resolving
+    -- tagged-literal \"macros\", analogous to #profile and #or.
+    called_by: Application
+
+    eval_tagged_literal: (tagged_literal: TagLiteral, opts: ReadOptions, env: Any, ks: List<Any>) -> Any
+    expand_case: (selector: Any, tagged_literal: TagLiteral, opts: ReadOptions, env: Any, ks: List<Any>) -> Any
+}
+
+------------------------------------------------------------
+-- Built-in tag literals (recognised by read-config)
+------------------------------------------------------------
+
+enum BuiltInTag {
+    env | envf | prop | long | double | keyword | boolean |
+    include | join | read_edn | merge | ref | profile |
+    hostname | user | or
+}
+
+------------------------------------------------------------
+-- Lifecycle Rules
+------------------------------------------------------------
+
+rule ConfigParsedFromSource {
+    when read_config is invoked with source
+    ensures a Config exists in state = parsed whose unresolved_tags
+            are exactly the tagged literals present in the EDN text,
+            preserved verbatim including unknown tags
+}
+
+rule TagResolutionIsIterative {
+    when Config.state = parsed
+    ensures the resolver repeatedly expands tagged literals until
+            either every tag is resolved (state -> resolved) or no
+            progress can be made (state -> failed)
+    -- See resolve-tagged-literals: it loops, tracking attempts, and
+    -- gives up after two consecutive no-progress iterations.
+}
+
+rule UnresolvableRefIsDroppedWithWarning {
+    when a #ref tag points to a key that is not present in the
+         resolved environment after at least one full pass
+    ensures the offending key is removed (or set to nil) from the
+            output, and a warning is printed to stderr naming the
+            ref and its path
+}
+
+rule ProfileSelectsBranch {
+    when a #profile {k1 v1 ... :default vd} tag is encountered
+    ensures the value at key = options.profile is selected, falling
+            back to :default if absent
+}
+
+rule HostnameSelectsBranch {
+    when a #hostname tag is encountered
+    ensures the entry whose key (a string or set of strings) matches
+            options.hostname (or $HOSTNAME) is selected, falling back
+            to :default
+}
+
+rule UserSelectsBranch {
+    when a #user tag is encountered
+    ensures the entry whose key matches options.user (or $USER)
+            is selected, falling back to :default
+}
+
+rule OrPicksFirstTruthy {
+    when an #or [x1 x2 ...] tag is encountered
+    ensures the first truthy resolved value is returned; if every
+            entry resolves falsey, nil is returned
+}
+
+rule EnvLooksUpProcessEnvironment {
+    when an #env NAME tag is encountered
+    ensures the value of the NAME environment variable is returned
+            (or nil if unset)
+}
+
+rule IncludeReadsAnotherSource {
+    when an #include value tag is encountered
+    ensures value is resolved through options.resolver to a new
+            ConfigSource and read-config is invoked recursively with
+            the same options; if the include cannot be resolved, the
+            placeholder map {:aero/missing-include value} is substituted
+}
+
+rule UnknownTagFallsBackToDataReaders {
+    when a tag is not a BuiltInTag and no defmethod reader is
+         registered for it
+    ensures the *data-readers* / default-data-readers entry for that
+            tag is invoked if present, otherwise read-config raises
+            an ex-info \"No reader for tag X\"
+}
+
+rule DeferredsRealisedAfterResolution {
+    when Config.state -> resolved
+    ensures every Deferred value in the data tree is dereferenced
+            (its delayed body run exactly once) before the value is
+            returned to the caller
+}
+
+rule ParseErrorsCarryLineNumber {
+    when EDN parsing of source fails on the JVM
+    ensures read-config throws ex-info with message
+            \"Config error on line N\" and {:line N} ex-data, wrapping
+            the underlying exception
+}
+
+rule ResolutionExhaustionThrows {
+    when iterative tag resolution makes no progress for more than
+         the allowed retry budget and the failure is not a missing #ref
+    ensures read-config throws ex-info \"Max attempts exhausted\"
+            (or \"Incomplete resolution\") with the partial expansion
+            attached as ex-data
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant ConfigurationIsData {
+    -- The output of read-config is plain EDN-compatible Clojure data.
+    -- Aero never produces executable code from configuration; tag
+    -- literals are a closed, declarative set plus user-registered
+    -- readers. Configuration is data, not a program.
+}
+
+invariant NoTuringCompleteEvaluation {
+    -- Aero deliberately does not use clojure.core/read or read-string
+    -- on user input; it goes through the EDN reader plus a fixed
+    -- multimethod dispatch. This is a security-relevant promise.
+}
+
+invariant DeferredsSkippedOnUnselectedBranches {
+    -- A Deferred placed inside a #profile branch that is not selected
+    -- is never realised. This is the mechanism by which expensive or
+    -- environment-specific work (e.g. prod-only decryption) is
+    -- avoided in other profiles.
+}
+
+invariant ResolverPluggable {
+    -- The strategy used to locate #include targets is supplied by the
+    -- caller as options.resolver and may be a function or a literal
+    -- map. Aero never assumes the filesystem layout of the host.
+}
+
+------------------------------------------------------------
+-- Open questions
+------------------------------------------------------------
+
+open question "What ordering guarantees does Aero promise when a tag
+               body contains multiple nested tags that depend on the
+               same #ref? The implementation re-iterates expansion;
+               whether callers may rely on a specific evaluation order
+               is not documented."
+
+open question "Are user-defined readers expected to be pure? The code
+               does not enforce purity, but #profile-based skipping of
+               Deferreds suggests purity is the intended contract."
+
+open question "What is the supported behaviour when an #include cycle
+               exists? The code does not appear to detect cycles
+               explicitly."
