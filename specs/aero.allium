@@ -1,0 +1,127 @@
+-- allium: 3
+
+-- Aero: a small Clojure library for explicit, intentful EDN-based
+-- configuration. Callers read a config file (or resource) and Aero
+-- resolves a fixed set of tagged literals (#env, #ref, #profile, etc.)
+-- against an evaluation context (profile, user, hostname, resolver).
+
+external entity Caller
+  description "Clojure/ClojureScript program that loads configuration via Aero."
+
+external entity Environment
+  description "Host environment providing env vars, system properties, hostname and current user."
+  field hostname text
+  field user text
+
+external entity ConfigSource
+  description "An EDN file or resource read by Aero. May contain Aero tag literals."
+  field location text
+  field contents text
+
+enum Profile
+  default
+  dev
+  test
+  prod
+  -- profiles are open-ended; these are conventional values
+
+value ReadOptions
+  description "Options passed to read-config."
+  field profile Profile optional
+  field user text optional
+  field resolver text optional  -- function or map; resolves #include paths
+
+entity TaggedLiteral
+  description "An unresolved Aero tag occurrence inside the config tree."
+  field tag text                -- e.g. env, ref, profile, or, join, include, merge, long, double, keyword, boolean, envf, prop, hostname, user, read-edn
+  field form any
+
+entity Config
+  description "Resolved configuration value tree returned by read-config."
+  field source ConfigSource
+  field options ReadOptions
+  field value any
+
+actor Caller calls Aero.read_config
+
+surface Aero
+  description "Public Clojure API of the aero.core namespace."
+
+  operation read_config
+    description "Read an EDN config from a path or resource and resolve all Aero tag literals."
+    input source ConfigSource
+    input options ReadOptions optional
+    output Config
+    promise "Returns a fully realised Clojure value with no remaining Aero TaggedLiterals."
+    promise "Pure with respect to the source bytes and options, modulo reads of Environment (env vars, system properties, hostname, user) and #include resolution."
+    promise "Configuration is data only: evaluation never invokes user code beyond registered reader/eval-tagged-literal multimethods."
+
+  operation reader
+    description "Multimethod extension point for defining custom tag literals."
+    promise "Callers may extend `reader` with their own tag symbol to add new tagged literals."
+
+  operation eval_tagged_literal
+    description "Multimethod extension point for evaluating tag literals during resolution."
+
+surface AeroAlpha
+  description "Experimental API in aero.alpha.core for defining macro-style tag literals (e.g. case-like literals such as #profile)."
+
+rule resolve_env
+  when "a #env TAG is encountered during resolution"
+  ensures "the tag is replaced with the value of environment variable TAG, or nil if unset"
+
+rule resolve_envf
+  when "a #envf [fmt VAR ...] tag is encountered"
+  ensures "the tag is replaced with fmt formatted using the named environment variables"
+
+rule resolve_or
+  when "an #or [a b ...] tag is encountered"
+  ensures "the tag is replaced with the first non-nil element after recursive resolution"
+
+rule resolve_profile
+  when "a #profile {p1 v1 ... :default vd} tag is encountered"
+  ensures "the tag is replaced with the entry matching options.profile, falling back to :default"
+
+rule resolve_hostname
+  when "a #hostname {h1 v1 ... :default vd} tag is encountered"
+  ensures "the tag is replaced with the entry whose key matches the host's hostname (string or set), falling back to :default"
+
+rule resolve_user
+  when "a #user {u1 v1 ... :default vd} tag is encountered"
+  ensures "the tag is replaced with the entry matching options.user (or current OS user), falling back to :default"
+
+rule resolve_ref
+  when "a #ref [k1 k2 ...] tag is encountered"
+  ensures "the tag is replaced with (get-in resolved-config [k1 k2 ...])"
+  promise "References resolve recursively, including across #include boundaries."
+
+rule resolve_include
+  when "a #include PATH tag is encountered"
+  ensures "PATH is resolved via options.resolver (default: relative to including file) and read with read-config; the resulting value is spliced in place"
+
+rule resolve_join
+  when "a #join [s1 s2 ...] tag is encountered"
+  ensures "the tag is replaced with the string concatenation of resolved elements"
+
+rule resolve_merge
+  when "a #merge [m1 m2 ...] tag is encountered"
+  ensures "the tag is replaced with (merge m1 m2 ...) of the resolved maps"
+
+rule resolve_coercion
+  when "a #long, #double, #keyword or #boolean tag wraps a value"
+  ensures "the inner value is parsed/coerced to the named type"
+
+rule resolve_read_edn
+  when "a #read-edn tag wraps a string"
+  ensures "the string is parsed as EDN and replaces the tag"
+
+invariant no_unresolved_tags
+  "The value returned from read_config contains no Aero TaggedLiteral nodes; all tags either resolved successfully or surfaced as nil/error."
+
+invariant data_only
+  "Aero never evaluates arbitrary code from the config source; only registered tag readers run."
+
+open question "Exact error/exception behaviour when an #env variable is unset, an #include path cannot be resolved, or a coercion (#long/#double/#boolean) fails — the README does not specify and would need to be read from source and tests."
+open question "Whether resolution order across sibling tags is specified or merely incidental (e.g. #ref pointing at a value that is itself a deferred tag)."
+open question "Full surface of the alpha macro-tag-literal API in aero.alpha.core (deftag-like forms) — only sketched in README."
+open question "ClojureScript-specific differences in tag handling, given the .cljc sources."
