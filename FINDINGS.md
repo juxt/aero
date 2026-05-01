@@ -1,51 +1,71 @@
-# Aero — Findings vs ratified spec (`specs/aero.allium`)
+# Aero — Findings
 
-Review pass over `src/aero/core.cljc` and `src/aero/alpha/core.cljc` reading the implementation through the lens of the ratified Allium spec. Findings are grouped by classification; each one names the spec entity/rule it bears on.
+## [high] likely_bug — src/aero/core.cljc:46
 
-## Likely bugs
+In ClojureScript, get-env passes the raw symbol s into gobj/get, but JS object key lookup expects a string; #env will return undefined/nil for any variable in CLJS.
 
-### 1. `#hostname` falls back to `$HOSTNAME` on the JVM (`src/aero/core.cljc:249`)
-`eval-tagged-literal 'hostname` uses `(or hostname (get-env "HOSTNAME"))`. On Linux/macOS the `HOSTNAME` shell variable is not exported to child processes by default — `System/getenv("HOSTNAME")` typically returns `nil`. The match then silently misses every host key and falls through to `:default`, which contradicts the *intent* of `rule resolve_hostname`. The expected source is `java.net.InetAddress/getLocalHost.getHostName` (with the env var as a manual override).
+**Spec:** resolve_env  
+**Fix:** Coerce s to a string before gobj/get, e.g. (gobj/get js/process.env (str s)).
 
-*Fix:* use `InetAddress` on JVM; keep the env-var override path as an explicit opt.
+## [high] likely_bug — src/aero/core.cljc:249
 
-### 2. `#user` only consults `USER` (`src/aero/core.cljc:255`)
-Windows exposes the current user as `USERNAME`, not `USER`. On Windows `eval-tagged-literal 'user` will silently fail to match per-user keys and fall through to `:default`. `rule resolve_user` says "matches options.user (or current OS user)" — the implementation does not honour that on Windows.
+#hostname JVM fallback reads environment variable HOSTNAME, which is a bash shell builtin and not exported by default on Linux/macOS, so the fallback is usually nil rather than the host's hostname.
 
-*Fix:* try `USER` then `USERNAME`; document the `:user` opt as the portable mechanism.
+**Spec:** resolve_hostname  
+**Fix:** On JVM, fall back to InetAddress/getLocalHost.getHostName instead of the HOSTNAME env var.
 
-### 3. Coercion readers leak raw host exceptions (`src/aero/core.cljc:63`)
-`#long`/`#double` call `Long/parseLong`/`Double/parseDouble` directly, so malformed input throws `NumberFormatException` rather than an Aero `ex-info` with `{:tag … :value …}` context. `#boolean` uses `Boolean/parseBoolean`, which returns `false` for *any* non-`"true"` string — typos like `"yes"` or `"1"` silently become `false`. This is one of the items called out by the spec's open question on coercion failure behaviour, and answers it pragmatically: at minimum, errors should be wrapped.
+## [medium] brittle_code — src/aero/core.cljc:255
 
-## Brittle code
+#user falls back to the USER env var instead of the OS-reported current user; on Windows USER is unset (USERNAME is used) so #user resolves to nil.
 
-### 4. `relative-resolver` swallows missing includes as in-band data (`src/aero/core.cljc:116`)
-When an include path cannot be located, both `relative-resolver` and `resource-resolver` return a `StringReader` containing `(pr-str {:aero/missing-include include})`. The result is that a missing include is silently spliced into the resolved config as a plain map. `rule resolve_include` says nothing about a sentinel; downstream code that doesn't know to look for `:aero/missing-include` will accept a structurally-valid but semantically-wrong config. Should at least be opt-in, and ideally raise.
+**Spec:** resolve_user  
+**Fix:** Use System/getProperty "user.name" on JVM (and equivalent on CLJS) rather than the USER env var.
 
-### 5. `#envf` interpolates `(str nil)` for unset vars (`src/aero/core.cljc:54`)
-`(str (get-env (str %)))` turns an unset variable into `""`. The formatted string thus contains an invisible empty segment with no signal to the caller. `rule resolve_envf` is silent on this; in practice it's a footgun, especially for URLs/paths assembled via `#envf`.
+## [medium] brittle_code — src/aero/core.cljc:116
 
-### 6. Hardcoded `attempts > 1` ceiling in resolver (`src/aero/core.cljc:400`)
-`resolve-tagged-literals` throws `"Max attempts exhausted"` after two non-progressing attempts. The error contains the in-progress map but no specific cause, and the same exception is used both for genuinely cyclic graphs and for cases where the loop has simply been unable to make progress this iteration. Brittle in the sense that the diagnostic loses information just at the moment a user needs it.
+relative-resolver silently substitutes a {:aero/missing-include path} sentinel when the include file is absent, masking misconfiguration instead of raising a clear error.
 
-### 7. cljs `adaptive-resolver` assumes `source` is a path string (`src/aero/core.cljc:136`)
-The cljs branch does `(path/join source ".." include)` and `(fs/existsSync …)`. If a caller passes a Reader or a non-path source (which the JVM branch handles via the `IllegalArgumentException` catch), the cljs branch will either coerce a Reader to `"[object …]"` or throw an opaque `path` error. Asymmetric robustness across the two host platforms.
+**Spec:** resolve_include  
+**Fix:** Throw an ex-info with the missing path or require an explicit :missing-include policy in opts.
 
-## Logic ambiguity
+## [high] logic_ambiguity — src/aero/core.cljc:381
 
-### 8. `#env` cannot distinguish unset from empty (`src/aero/core.cljc:48`)
-`reader 'env` returns whatever `System/getenv` gives back. Both "unset" and "empty string" reduce to indistinguishable values from the caller's perspective (`nil` vs `""`), and the spec's `rule resolve_env` only says "or nil if unset". This is the spec's first open question; recommend resolving it explicitly (e.g. an option to require-set) rather than leaving it to caller convention.
+On unresolvable #ref, resolve-tagged-literals prints a WARNING and silently dissocs/nils the offending location; this behaviour is not described in the spec and can hide real config errors.
 
-### 9. Unresolvable `#ref` is downgraded to a warning + nil (`src/aero/core.cljc:378`)
-When the resolver gets stuck on a `#ref` it prints `WARNING: Unable to resolve …` to `*err*` and `dissoc`/`assoc`'s `nil` in place. A reasonable strict reading of `invariant no_unresolved_tags` ("all tags either resolved successfully or surfaced as nil/error") allows nil — but the *side channel* is a stderr `println`, which is easy to miss in a server log and surprising for a library.
+**Spec:** resolve_ref, no_unresolved_tags  
+**Fix:** Throw or surface unresolved refs by default; gate the warn-and-drop behaviour behind an explicit option.
 
-## Business questions
+## [medium] likely_bug — src/aero/core.cljc:65
 
-### 10. `#read-edn` semantics on empty / malformed input (`src/aero/core.cljc:96`)
-`(some-> value str edn/read-string)` returns `nil` for `nil` input but throws raw `RuntimeException`/reader exceptions for malformed EDN. Should `#read-edn` of `""` be `nil`, an error, or unspecified? `rule resolve_read_edn` does not say.
+#long / #double / #boolean coercions throw raw NumberFormatException / unchecked errors with no Aero-level context (path, tag, value), making coercion failures hard to diagnose.
 
-## Open questions for follow-up with maintainers
+**Spec:** resolve_coercion  
+**Fix:** Wrap parse calls in try/catch and throw ex-info with {:tag :value :path} for diagnostics.
 
-- Should missing includes / unset env vars / coercion failures be normalised to a single error path (`ex-info` with `:aero/...` keys), or remain best-effort?
-- Is the `#ref` warning-and-nil behaviour intended as a feature, or a debugging aid that should become an error before 2.0?
-- Are the cljs and JVM branches expected to accept the same `source` shapes? Currently they diverge.
+## [low] logic_ambiguity — src/aero/core.cljc:97
+
+#read-edn uses edn/read-string with no :readers map, so any Aero or data-reader tags inside the embedded EDN string are not recognised; the spec rule does not specify whether nested tags should resolve.
+
+**Spec:** resolve_read_edn  
+**Fix:** Either document that nested tags are not resolved, or pass an Aero-aware :readers map to edn/read-string.
+
+## [low] business_question — src/aero/core.cljc:248
+
+eval-tagged-literal 'hostname reads (:hostname opts), but the spec's ReadOptions does not list a hostname option; either the spec is missing this field or the option is dead/undocumented.
+
+**Spec:** ReadOptions, resolve_hostname  
+**Fix:** Add hostname (and user override) fields to the ReadOptions spec entity to match the implementation.
+
+## [low] brittle_code — src/aero/core.cljc:400
+
+resolve-tagged-literals' attempt-counter logic resets to 0 whenever a ref is dropped, so pathological configs with cascading unresolvable refs can spin through many warnings before the > 1 throw fires (or fail to terminate clearly).
+
+**Spec:** resolve_ref, no_unresolved_tags  
+**Fix:** Increment attempts unconditionally on ref-drop, or cap total drops; make termination criteria explicit.
+
+## [low] likely_bug — src/aero/core.cljc:66
+
+CLJS implementation of #long uses (js/parseInt s) without an explicit radix, so values like "08" or "0x10" parse inconsistently across runtimes.
+
+**Spec:** resolve_coercion  
+**Fix:** Pass radix 10 explicitly to js/parseInt or use Number/JS BigInt with validation.
