@@ -1,0 +1,221 @@
+-- allium: 3
+
+-- Aero: a small Clojure(Script) library for explicit, intentful configuration
+-- expressed as edn enriched with tag literals.
+
+external entity ConfigSource {
+  description: "An edn document supplied as a file path, classpath resource, reader, or string. The on-disk content read by aero."
+  location: string
+}
+
+external entity Environment {
+  description: "The host operating-system environment that supplies environment variables, JVM system properties, hostname and user name used by tag-literal resolvers."
+}
+
+value Profile {
+  description: "A keyword (e.g. :dev, :test, :prod, :default) selecting a branch within #profile maps."
+  name: keyword
+}
+
+value Resolver {
+  description: "Strategy used to locate files referenced by #include. Either a function (path, source) -> path, or a map of source-relative names to actual paths. Built-in variants: relative (default), resource-resolver, root-resolver."
+  kind: enum { Relative, Resource, Root, Custom, Map }
+}
+
+value ReadOpts {
+  description: "Options accepted by read-config."
+  profile: Profile?
+  user: string?
+  hostname: string?
+  resolver: Resolver
+}
+
+entity TaggedLiteral {
+  description: "An edn tagged literal #tag value encountered while reading config. Aero recognises a built-in set and dispatches user-defined tags through the reader multimethod."
+  tag: keyword
+  value: any
+}
+
+enum BuiltInTag {
+  Env, Envf, Prop, Long, Double, Keyword, Boolean,
+  Include, Join, ReadEdn, Merge, Or, Ref, Profile, Hostname, User
+}
+
+entity Config {
+  description: "The fully resolved Clojure data structure produced by read-config."
+  source: ConfigSource
+  opts: ReadOpts
+  value: any
+}
+
+actor Application {
+  description: "A Clojure(Script) program that calls aero.core/read-config to obtain its configuration."
+}
+
+actor TagAuthor {
+  description: "A library or application author who extends aero by defining new methods on the reader (or eval-tagged-literal) multimethod, including via the alpha macro-tag API."
+}
+
+surface AeroAPI {
+  description: "The public Clojure API exposed by aero.core (and aero.alpha.core for experimental extension points)."
+  caller: Application
+
+  operation read-config {
+    description: "Read an edn config from `source`, resolve all tagged literals, and return plain Clojure data."
+    input: { source: ConfigSource, opts: ReadOpts? }
+    output: Config
+    ensures: "All recognised tag literals are resolved before the value is returned."
+    ensures: "#ref values are recursively dereferenced against the fully-resolved root config."
+    ensures: "Unknown tags are dispatched through the reader multimethod; if no method is registered the literal is returned unchanged with a stderr warning."
+  }
+
+  operation read-config-into-tagged-literal {
+    description: "Read the source into an unresolved TaggedLiteral tree (no expansion). Useful for tooling."
+    input: { source: ConfigSource }
+    output: any
+  }
+
+  operation resolve-tagged-literals {
+    description: "Walk a tagged-literal tree and resolve it against the given opts."
+    input: { tree: any, opts: ReadOpts }
+    output: any
+  }
+}
+
+surface ReaderExtension {
+  description: "Multimethod extension point through which TagAuthors register handlers for custom tags."
+  caller: TagAuthor
+
+  operation defmethod-reader {
+    description: "Define a handler (defmethod aero.core/reader 'mytag [opts tag value] ...) invoked when #mytag is encountered."
+    input: { tag: symbol, handler: function }
+  }
+
+  operation defmethod-eval-tagged-literal {
+    description: "Alpha API. Define a handler on aero.alpha.core/eval-tagged-literal for tags that need to participate in the expansion machinery (e.g. case-like or deferred forms)."
+    input: { tag: symbol, handler: function }
+  }
+}
+
+-- Built-in tag promises ---------------------------------------------------
+
+rule env_tag {
+  when: "reader encounters #env VAR"
+  ensures: "Resolves to the value of OS environment variable VAR, or nil if unset."
+}
+
+rule envf_tag {
+  when: "reader encounters #envf [fmt VAR1 VAR2 ...]"
+  ensures: "Resolves to format applied to fmt with the named environment variables substituted in order."
+}
+
+rule prop_tag {
+  when: "reader encounters #prop NAME"
+  ensures: "Resolves to the JVM system property NAME (Clojure only)."
+}
+
+rule coercion_tags {
+  when: "reader encounters #long, #double, #keyword or #boolean applied to a string"
+  ensures: "Resolves to the string parsed into the corresponding Clojure scalar type."
+}
+
+rule include_tag {
+  when: "reader encounters #include PATH"
+  ensures: "Reads the referenced file via the configured resolver and splices its fully-resolved value in place. Path is resolved relative to the including source by default."
+  ensures: "#ref forms inside an included file resolve against the root config of the top-level read."
+}
+
+rule join_tag {
+  when: "reader encounters #join [parts...]"
+  ensures: "Resolves to the concatenation of parts as a single string after any nested tags are expanded."
+}
+
+rule read_edn_tag {
+  when: "reader encounters #read-edn STRING"
+  ensures: "Resolves to the result of reading STRING as edn."
+}
+
+rule merge_tag {
+  when: "reader encounters #merge [maps...]"
+  ensures: "Resolves to the left-to-right merge of the given maps after each is expanded."
+}
+
+rule or_tag {
+  when: "reader encounters #or [candidates...]"
+  ensures: "Resolves to the first non-nil candidate after expansion; resolves to nil only if all are nil."
+}
+
+rule ref_tag {
+  when: "reader encounters #ref PATH (a vector resolveable by get-in against the root config)"
+  ensures: "Resolves to the value at PATH in the fully-resolved root config."
+  ensures: "References are recursive; cycles surface as an Incomplete resolution error."
+  ensures: "Refs inside #include'd files resolve against the top-level root, not the included file."
+}
+
+rule profile_tag {
+  when: "reader encounters #profile {keyword -> value, ...}"
+  ensures: "Resolves to the entry whose key equals opts.profile, falling back to :default. Supersedes the deprecated #cond."
+}
+
+rule hostname_tag {
+  when: "reader encounters #hostname {hostname-or-set -> value, ...}"
+  ensures: "Resolves to the entry whose key matches the host's name (string match or set membership), falling back to :default."
+}
+
+rule user_tag {
+  when: "reader encounters #user {username -> value, ...}"
+  ensures: "Resolves to the entry whose key matches opts.user (or the OS user), falling back to :default."
+}
+
+-- Resolution lifecycle ----------------------------------------------------
+
+entity Resolution {
+  description: "The iterative expansion of a parsed config tree into a plain value."
+  state: enum { Parsed, Expanding, Resolved, Incomplete }
+  attempts: integer
+}
+
+transitions Resolution {
+  Parsed -> Expanding when "resolve-tagged-literals begins walking the tree"
+  Expanding -> Expanding when "a pass made progress; another pass is required because deferred or ref-bearing nodes remain"
+  Expanding -> Resolved when "a pass produces a tree containing no unresolved tagged literals"
+  Expanding -> Incomplete when "max attempts exhausted without progress; throws ex-info {:progress, :attempts}"
+}
+
+invariant resolution_is_pure {
+  description: "Given the same source, opts, and Environment snapshot, read-config returns equal values. The library does not mutate global state."
+}
+
+invariant config_is_data {
+  description: "The returned value is plain Clojure data (no executable code). Aero does not evaluate arbitrary code from config sources."
+}
+
+invariant tag_dispatch_is_open {
+  description: "Any tag not handled by a built-in is dispatched to the reader multimethod, allowing user extension without forking aero."
+}
+
+-- Alpha: macro-style tag literals ----------------------------------------
+
+entity MacroTag {
+  description: "A user-defined tag handled via aero.alpha.core/eval-tagged-literal that participates in the expansion engine (kv-seq / expand / expand-case) so it can implement case-like or deferred semantics analogous to #profile and #or."
+  tag: symbol
+}
+
+surface AlphaAPI {
+  description: "Experimental helpers for authoring macro-style tag literals."
+  caller: TagAuthor
+  operation expand { input: { node: any, opts: ReadOpts } output: any }
+  operation expand-case { description: "Helper for building case-like tags such as #profile." }
+  operation expand-scalar { }
+  operation expand-coll { }
+  operation kv-seq { description: "Linearise a Clojure value into a k/v zipper used by the expander." }
+  operation reassemble { }
+}
+
+-- Open questions ----------------------------------------------------------
+
+open question "Exact semantics of the resolver contract: signature of a function-resolver, and how a map-resolver keys are matched, are only sketched in the README — confirm against impl in resolve-tagged-literals."
+open question "Whether #ref cycles raise a distinct error or surface as Incomplete resolution with attempts exhausted."
+open question "ClojureScript / lumo coverage parity: which built-in tags are no-ops or unsupported on cljs (e.g. #prop, #include path semantics)."
+open question "The deferred macro and realize-deferreds pathway — what user-visible promises does it make, and is it part of the public surface or an implementation detail of the alpha API?"
+open question "Stability guarantees of aero.alpha.core (the namespace is labelled alpha; what changes are considered breaking)."
