@@ -1,71 +1,51 @@
-# Aero — Findings
+# Aero — Findings vs ratified spec
 
-## [high] likely_bug — src/aero/core.cljc:46
+Findings produced by reading `src/aero/**` through the lens of `specs/aero.allium`.
 
-In ClojureScript, get-env passes the raw symbol s into gobj/get, but JS object key lookup expects a string; #env will return undefined/nil for any variable in CLJS.
+## Likely bugs
 
-**Spec:** resolve_env  
-**Fix:** Coerce s to a string before gobj/get, e.g. (gobj/get js/process.env (str s)).
+### 1. `expand-keys` shadows its `ks` path argument (high)
+`src/aero/alpha/core.cljc:151-171`. The function takes a path `ks` parameter, then immediately rebinds it via `(loop [ks (keys m) ...])`. The recursive `(expand (first ks) opts env ks)` therefore passes *the list of remaining map keys* as the path vector. Both `:aero.core/env` entries (used by `#ref`) and `::incomplete::path` diagnostics reported by `resolve-tagged-literals` end up keyed under bogus paths. Suspected to break key-side `#ref`/`#profile`/`#user` chains in maps. Fix: rename the loop binding (e.g. `loop [remaining (keys m) ...]`).
+Spec: `resolve_ref`, `resolve_profile`, `resolve_user`, `resolve_hostname`.
 
-## [high] likely_bug — src/aero/core.cljc:249
+### 2. `#or` returns first **truthy**, not first **non-nil** (high)
+`src/aero/core.cljc:264-286`. The `value` truthy check skips `false`, contradicting `rule resolve_or` which says "first non-nil element". `#or [false x]` resolves to `x`. Fix: `(some? value)` instead of relying on truthiness.
+Spec: `resolve_or`.
 
-#hostname JVM fallback reads environment variable HOSTNAME, which is a bash shell builtin and not exported by default on Linux/macOS, so the fallback is usually nil rather than the host's hostname.
+### 3. Nested `#include` from a non-file source silently produces a missing-include marker (medium)
+`src/aero/core.cljc:84-90, 104-116`. When a child config's source is a `StringReader` (e.g. an earlier missing-include placeholder, or a user-supplied reader), `relative-resolver` catches `IllegalArgumentException` from `(io/file source)`, sets `fl` to nil, and returns the `{:aero/missing-include include}` marker. Failures cascade silently across `#include` boundaries. Fix: surface a structured error or at minimum log; consider preserving an explicit base path through opts.
+Spec: `resolve_include`, `no_unresolved_tags`.
 
-**Spec:** resolve_hostname  
-**Fix:** On JVM, fall back to InetAddress/getLocalHost.getHostName instead of the HOSTNAME env var.
+### 4. `#envf` silently substitutes `""` for unset env vars (medium)
+`src/aero/core.cljc:52-56`. `(map #(str (get-env (str %))) args)` turns missing variables into empty strings before formatting, producing malformed config without warning. Fix: detect nils and either throw or render as `nil`/`"<unset>"` per the policy chosen for finding 5.
+Spec: `resolve_envf`, open question on error semantics.
 
-## [medium] brittle_code — src/aero/core.cljc:255
+## Logic ambiguity
 
-#user falls back to the USER env var instead of the OS-reported current user; on Windows USER is unset (USERNAME is used) so #user resolves to nil.
+### 5. Inconsistent error semantics for failed tag resolution (high)
+`src/aero/core.cljc:48,52,63-82`. `#env` returns nil on miss; `#long`/`#double` throw raw `NumberFormatException`; `#boolean` silently coerces any non-`"true"` string to false; `#envf` silently formats with `""`. The spec leaves this open (`open question` line 124). Pick one contract (recommend `ex-info` with `{:tag :value :reason}`) and apply uniformly.
+Spec: `resolve_env`, `resolve_envf`, `resolve_coercion`, open question.
 
-**Spec:** resolve_user  
-**Fix:** Use System/getProperty "user.name" on JVM (and equivalent on CLJS) rather than the USER env var.
+## Brittle code
 
-## [medium] brittle_code — src/aero/core.cljc:116
+### 6. `resolve-tagged-literals` fixed-point loop is opaque (medium)
+`src/aero/core.cljc:360-412`. Uses an attempts counter and a `(not (::incomplete? x))` gate that is never true on iteration 0 (initial map sets it to `true`). Failures throw `"Max attempts exhausted"` carrying only `:progress` — no path or tag for the offending node. Hard to diagnose real spec violations of `no_unresolved_tags`. Suggest carrying `::incomplete` into the thrown ex-info and naming the path explicitly.
+Spec: `no_unresolved_tags`.
 
-relative-resolver silently substitutes a {:aero/missing-include path} sentinel when the include file is absent, masking misconfiguration instead of raising a clear error.
+### 7. `#include` re-uses parent opts; map resolver branch drops `source` (medium)
+`src/aero/core.cljc:84-90`. The recursive `(read-config ... opts)` keeps the parent's `:resolver` and stale `:source`; `read-config` then overrides `:source` with the new value. The `(map? resolver)` branch ignores `source` entirely, so source-relative resolution silently degrades when callers supply a map resolver. At minimum, document; ideally pass an explicit relative-base through opts.
+Spec: `resolve_include`.
 
-**Spec:** resolve_include  
-**Fix:** Throw an ex-info with the missing path or require an explicit :missing-include policy in opts.
+## Inefficiency
 
-## [high] logic_ambiguity — src/aero/core.cljc:381
+### 8. Unconditional `realize-deferreds` postwalk on every read (low)
+`src/aero/core.cljc:158-160, 414-430`. Every successful `read-config` performs a full postwalk to look for `Deferred` instances even when none exist. For large trees this is a wasted traversal; track whether any Deferred was emitted during resolution and skip the walk when none.
+Spec: `Aero.read_config` (performance is unspecified, so a low-priority efficiency note).
 
-On unresolvable #ref, resolve-tagged-literals prints a WARNING and silently dissocs/nils the offending location; this behaviour is not described in the spec and can hide real config errors.
+## Business questions
 
-**Spec:** resolve_ref, no_unresolved_tags  
-**Fix:** Throw or surface unresolved refs by default; gate the warn-and-drop behaviour behind an explicit option.
+### 9. Ratify error contract for failed resolutions
+Spec line 124. Code today is a grab-bag (nil / throw / empty-string / silent false). Pick one and amend the spec so callers can rely on it.
 
-## [medium] likely_bug — src/aero/core.cljc:65
-
-#long / #double / #boolean coercions throw raw NumberFormatException / unchecked errors with no Aero-level context (path, tag, value), making coercion failures hard to diagnose.
-
-**Spec:** resolve_coercion  
-**Fix:** Wrap parse calls in try/catch and throw ex-info with {:tag :value :path} for diagnostics.
-
-## [low] logic_ambiguity — src/aero/core.cljc:97
-
-#read-edn uses edn/read-string with no :readers map, so any Aero or data-reader tags inside the embedded EDN string are not recognised; the spec rule does not specify whether nested tags should resolve.
-
-**Spec:** resolve_read_edn  
-**Fix:** Either document that nested tags are not resolved, or pass an Aero-aware :readers map to edn/read-string.
-
-## [low] business_question — src/aero/core.cljc:248
-
-eval-tagged-literal 'hostname reads (:hostname opts), but the spec's ReadOptions does not list a hostname option; either the spec is missing this field or the option is dead/undocumented.
-
-**Spec:** ReadOptions, resolve_hostname  
-**Fix:** Add hostname (and user override) fields to the ReadOptions spec entity to match the implementation.
-
-## [low] brittle_code — src/aero/core.cljc:400
-
-resolve-tagged-literals' attempt-counter logic resets to 0 whenever a ref is dropped, so pathological configs with cascading unresolvable refs can spin through many warnings before the > 1 throw fires (or fail to terminate clearly).
-
-**Spec:** resolve_ref, no_unresolved_tags  
-**Fix:** Increment attempts unconditionally on ref-drop, or cap total drops; make termination criteria explicit.
-
-## [low] likely_bug — src/aero/core.cljc:66
-
-CLJS implementation of #long uses (js/parseInt s) without an explicit radix, so values like "08" or "0x10" parse inconsistently across runtimes.
-
-**Spec:** resolve_coercion  
-**Fix:** Pass radix 10 explicitly to js/parseInt or use Number/JS BigInt with validation.
+### 10. Ratify the warn-and-nil behaviour for unresolved `#ref`
+`src/aero/core.cljc:380-398`. The implementation prints `WARNING: Unable to resolve ...` to stderr and replaces the unresolved value with `nil` rather than throwing. This is observable behaviour callers may already depend on. Either ratify in the spec (extend `resolve_ref` and `no_unresolved_tags`) or change the code to throw.
